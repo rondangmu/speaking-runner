@@ -32,6 +32,29 @@
   // 온라인 공유 페이지(claude.ai 안의 틀)에서 열렸는지: 마이크·파일 저장·외부 API가 막혀 있어요
   const ONLINE = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
 
+  // 방문·이용 통계 (구글 애널리틱스 4). 실제 사이트 주소에서만 집계 → 로컬 테스트는 통계에 안 섞임
+  const GA_ID = 'G-HNQEHZ37NN';
+  // 개발자 본인 방문 제외: 주소 끝에 ?owner=1 로 한 번 접속하면 그 브라우저는 영구 제외 (?owner=0 으로 해제)
+  const OWNER = (() => {
+    try {
+      const q = new URLSearchParams(location.search).get('owner');
+      if (q === '1') localStorage.setItem('sr_owner', '1');
+      if (q === '0') localStorage.removeItem('sr_owner');
+      if (q !== null) setTimeout(() => toast(q === '1' ? '👑 이 브라우저는 이제 통계에서 빠져요' : '📊 이 브라우저도 다시 통계에 포함돼요'), 600);
+      return localStorage.getItem('sr_owner') === '1';
+    } catch (e) { return false; }
+  })();
+  const GA_ON = !!GA_ID && !OWNER && location.hostname === 'rondangmu.github.io';
+  if (GA_ON) {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag('js', new Date());
+    gtag('config', GA_ID, { send_page_view: false }); // 화면 전환(#bank 등)마다 직접 page_view를 보냄
+    const s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+  }
+  const track = (name, params) => { if (GA_ON) try { gtag('event', name, params || {}); } catch (e) { } };
+
   // confirm() 대신 쓰는 페이지 안 확인창 (온라인 페이지에서는 confirm이 동작하지 않아요)
   function ask(msg, { ok = '확인', cancel = '취소', danger = false } = {}) {
     return new Promise(res => {
@@ -210,6 +233,7 @@
       if (!p || !String(p.content || '').trim()) { toast('저장할 내용이 없어요'); return; }
       S.bookmarks.unshift({ key, ...p, ts: Date.now() });
       markDay();
+      track('bookmark_add', { bookmark_type: p.type });
       toast('⭐ 북마크에 저장했어요!');
     }
     save();
@@ -235,6 +259,7 @@
     $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === route));
     const y = window.scrollY;
     $('#view').innerHTML = VIEWS[route](routeArg);
+    if (!keepScroll) track('page_view', { page_title: PAGE_NAMES[route] || route, page_location: location.origin + location.pathname + route + (routeArg && !/^t-/.test(routeArg) ? '/' + routeArg : '') });
     window.scrollTo(0, keepScroll ? y : 0);
     updateBmCount();
   }
@@ -436,7 +461,11 @@
   function openQcard(card) {
     card.classList.remove('collapsed');
     const box = $('.answers', card);
-    if (box && !box.dataset.ready) { box.innerHTML = answersBody(findItem(card.id.slice(2))); box.dataset.ready = '1'; }
+    if (box && !box.dataset.ready) {
+      const it = findItem(card.id.slice(2));
+      box.innerHTML = answersBody(it); box.dataset.ready = '1';
+      track('question_view', { question_id: card.id.slice(2), part: it && it.part }); // 문제·모범답안 열람
+    }
   }
 
   /* ---- 문제 추가 ---- */
@@ -982,6 +1011,7 @@
       }
       test.done = true;
       markDay();
+      track(full ? 'mock_complete' : 'practice_complete', { recording: !!opts.recording });
     } catch (e) {
       if (e !== ABORT) console.error(e);
     }
@@ -1241,6 +1271,7 @@ ${selItems().map((x, n) => `${n + 1}. ${x.tag} ${x.desc}`).join('\n')}${extra ? 
         <button class="btn btn-primary" id="reqCopy">📋 복사하기</button></div>`);
     const commit = () => {
       const v = $('#reqText').value;
+      track('ai_feedback_request', { method: 'copy' });
       copyText(v).then(ok => {
         if (!ok) { $('#reqText').select(); return toast('자동 복사가 막혔어요. 선택된 요청문을 Ctrl+C로 복사해 주세요.'); }
         if (fresh) S.chat = { url: '', count: 0, tokens: 0, started: Date.now() };
@@ -1392,6 +1423,7 @@ Fill the fields as follows:
   async function feedbackOne(testId, i, btn) {
     const t = S.tests.find(x => x.id === testId);
     if (!t) return;
+    track('ai_feedback_request', { method: 'api' });
     const q = t.qs[i];
     const it = findItem(q.qid);
     if (!S.settings.apiKey) { toast('먼저 설정에서 API 키를 입력해 주세요'); settingsModal(); return false; }
@@ -1502,7 +1534,7 @@ Fill the fields as follows:
   // web3forms.com에서 개발자 이메일로 발급받은 Access Key (공개돼도 되는 전송 전용 키)
   const WEB3FORMS_KEY = '4503d05b-f211-4d23-b10d-0f2229f77842';
   const OPINION_TYPES = [['💡 개선 제안', '더 좋아졌으면 하는 점, 있었으면 하는 기능'], ['🐞 오류 신고', '안 되거나 이상하게 동작하는 부분'], ['💬 기타', '어떤 의견이든 좋아요']];
-  const PAGE_NAMES = { home: '홈', bank: '파트별 문제은행', mock: '실전 모드', feedback: 'AI 피드백', topics: '주제별 공략', bookmarks: '북마크' };
+  const PAGE_NAMES = { home: '홈', bank: '파트별 문제은행', mock: '실전 모드', feedback: 'AI 피드백', topics: '주제별 공략', bookmarks: '북마크', opinion: '의견 보내기' };
   const deviceInfo = () => {
     const ua = navigator.userAgent;
     const kind = /iPhone|iPad|Android|Mobile/i.test(ua) ? '휴대폰·태블릿' : 'PC';
@@ -1559,6 +1591,7 @@ Fill the fields as follows:
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) throw new Error(data.message || res.status);
+      track('opinion_send', { opinion_type: type });
       location.hash = '#opinion/thanks';
     } catch (err) {
       btn.disabled = false; btn.textContent = '📮 보내기';
@@ -1803,6 +1836,7 @@ Fill the fields as follows:
       const it = findItem(el.dataset.id); if (!it) return;
       const test = makeTest([it], 'single', `${PART_INFO[it.part].name} 연습 · ${it.topic || ''}`);
       const rec = ONLINE ? false : await ask('🎤 녹음하면서 풀까요?', { ok: '녹음 + 받아쓰기', cancel: '타이머만' });
+      track('practice_start', { part: it.part });
       runCBT([it], test, { recording: rec, transcribe: rec && !!SR, fullscreen: false });
     },
     write: el => {
@@ -1816,6 +1850,7 @@ Fill the fields as follows:
       const built = buildFullTest();
       if (!built) return toast('문제가 부족해요');
       const rec = ($('input[name=recMode]:checked') || {}).value === 'rec';
+      track('mock_start', { recording: rec });
       runCBT(built.units, built.test, { recording: rec, transcribe: rec && $('#optStt') && $('#optStt').checked, fullscreen: $('#optFull') && $('#optFull').checked });
     },
     'fb-one': el => feedbackOne(el.dataset.id, +el.dataset.i, el),

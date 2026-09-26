@@ -223,12 +223,14 @@
   /* =========================================================
      5. 라우터
      ========================================================= */
-  let route = 'home', routeArg = '';
+  let route = 'home', routeArg = '', opinionFrom = '';
   const VIEWS = {};
   function render(keepScroll) {
     const h = decodeURIComponent(location.hash.slice(1)) || 'home';
     const [r, ...rest] = h.split('/');
+    const prev = route + (routeArg ? '/' + routeArg : '');
     route = VIEWS[r] ? r : 'home';
+    if (route === 'opinion' && !prev.startsWith('opinion')) opinionFrom = prev; // 의견 보내기 직전 화면 자동 기록
     routeArg = rest.join('/');
     $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === route));
     const y = window.scrollY;
@@ -1494,6 +1496,76 @@ Fill the fields as follows:
      14. 북마크
      ========================================================= */
   let bmFilter = 'all', bmPart = 'all', bmMemo = false, bmDoneF = 'all';
+  /* =========================================================
+     의견 보내기 — Web3Forms로 개발자 이메일에만 전송 (사이트에는 저장·공개되지 않음)
+     ========================================================= */
+  // web3forms.com에서 개발자 이메일로 발급받은 Access Key (공개돼도 되는 전송 전용 키)
+  const WEB3FORMS_KEY = '4503d05b-f211-4d23-b10d-0f2229f77842';
+  const OPINION_TYPES = [['💡 개선 제안', '더 좋아졌으면 하는 점, 있었으면 하는 기능'], ['🐞 오류 신고', '안 되거나 이상하게 동작하는 부분'], ['💬 기타', '어떤 의견이든 좋아요']];
+  const PAGE_NAMES = { home: '홈', bank: '파트별 문제은행', mock: '실전 모드', feedback: 'AI 피드백', topics: '주제별 공략', bookmarks: '북마크' };
+  const deviceInfo = () => {
+    const ua = navigator.userAgent;
+    const kind = /iPhone|iPad|Android|Mobile/i.test(ua) ? '휴대폰·태블릿' : 'PC';
+    const br = /Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? '삼성 인터넷' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : '기타';
+    return `${kind} · ${br} · 화면 ${innerWidth}×${innerHeight}`;
+  };
+  VIEWS.opinion = arg => {
+    if (arg === 'thanks') return `
+      <div class="card opinion-thanks">
+        <div style="font-size:54px">💌</div>
+        <h1>소중한 의견 감사합니다!</h1>
+        <p>보내 주신 의견은 개발자만 확인해요.<br>더 좋은 스피킹 러너를 만드는 데 꼭 반영할게요.</p>
+        <div class="row" style="justify-content:center;margin-top:18px">
+          <a class="btn" href="#opinion">의견 더 보내기</a>
+          <a class="btn btn-primary" href="#${esc(opinionFrom || 'home')}">하던 공부 계속하기 ▶</a>
+        </div>
+      </div>`;
+    return `
+      <div class="page-head"><h1>📮 의견 보내기</h1><p>불편한 점, 개선할 점, 오류 등 <b>어떤 의견이든</b> 좋아요. 보내 주신 의견은 <b>개발자만</b> 볼 수 있어요.</p></div>
+      <form class="card opinion-form" id="opinionForm" novalidate>
+        <h3 style="margin-top:0">어떤 의견인가요?</h3>
+        <div class="opinion-types">
+          ${OPINION_TYPES.map((t, i) => `<label class="opt"><input type="radio" name="opType" value="${t[0]}" ${i === 0 ? 'checked' : ''}><div><b>${t[0]}</b><span>${t[1]}</span></div></label>`).join('')}
+        </div>
+        <label class="field" style="margin-top:14px"><span>의견 내용</span>
+          <textarea class="textarea" id="opMsg" maxlength="3000" rows="7" placeholder="예) 휴대폰에서 실전 모드 타이머가 잘 안 보여요 / 파트 3 문제가 더 많았으면 좋겠어요"></textarea></label>
+        <div class="row small muted" style="margin-top:-4px"><span>📍 보내는 화면·기기 정보(${esc(PAGE_NAMES[(opinionFrom || 'home').split('/')[0]] || '홈')} · ${deviceInfo().split(' · ')[0]})가 함께 전달돼요. 이름·연락처는 받지 않아요.</span><span class="spacer"></span><span id="opCount">0 / 3000</span></div>
+        <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn btn-primary btn-lg" type="submit" id="opSend">📮 보내기</button></div>
+      </form>`;
+  };
+  document.addEventListener('submit', async e => {
+    if (e.target.id !== 'opinionForm') return;
+    e.preventDefault();
+    const msg = $('#opMsg').value.trim();
+    if (msg.length < 2) { toast('의견 내용을 적어 주세요'); $('#opMsg').focus(); return; }
+    if (!WEB3FORMS_KEY) { toast('아직 의견 받는 곳이 설정되지 않았어요'); return; }
+    const type = ($('input[name=opType]:checked') || {}).value || '💬 기타';
+    const from = opinionFrom || 'home';
+    const btn = $('#opSend'); btn.disabled = true; btn.textContent = '보내는 중…';
+    try {
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          access_key: WEB3FORMS_KEY,
+          subject: `[스피킹 러너] ${type.replace(/^\S+\s/, '')} 의견이 도착했어요`,
+          from_name: '스피킹 러너 사용자',
+          '의견 종류': type,
+          '의견 내용': msg,
+          '보낸 화면': `${PAGE_NAMES[from.split('/')[0]] || from} (#${from})`,
+          '기기': deviceInfo(),
+          '보낸 시각': new Date().toLocaleString('ko-KR')
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.message || res.status);
+      location.hash = '#opinion/thanks';
+    } catch (err) {
+      btn.disabled = false; btn.textContent = '📮 보내기';
+      toast('전송에 실패했어요. 인터넷 연결을 확인하고 다시 눌러 주세요');
+    }
+  });
+
   VIEWS.bookmarks = () => {
     const all = S.bookmarks;
     const list = all.filter(b => (bmFilter === 'all' || b.type === bmFilter) && (bmPart === 'all' || String(b.part) === bmPart));
@@ -1883,6 +1955,7 @@ Fill the fields as follows:
     if (e.target.id === 'bankSearch') { filterBank(); return; }
     if (e.target.id === 'bmSearch') { filterBm(); return; }
     if (e.target.id === 'topicSearch') { filterTopics(); return; }
+    if (e.target.id === 'opMsg') { $('#opCount').textContent = `${e.target.value.length} / 3000`; return; }
     const ta = e.target.closest('[data-my]');
     if (!ta) return;
     const t = S.tests.find(x => x.id === ta.dataset.test);

@@ -1529,7 +1529,7 @@ Fill the fields as follows:
         </div>
         <label class="field" style="margin-top:14px"><span>의견 내용</span>
           <textarea class="textarea" id="opMsg" maxlength="3000" rows="7" placeholder="예) 휴대폰에서 실전 모드 타이머가 잘 안 보여요 / 파트 3 문제가 더 많았으면 좋겠어요"></textarea></label>
-        <div class="row small muted" style="margin-top:-4px"><span>📍 보내는 화면·기기 정보(${esc(PAGE_NAMES[(opinionFrom || 'home').split('/')[0]] || '홈')} · ${deviceInfo().split(' · ')[0]})가 함께 전달돼요. 이름·연락처는 받지 않아요.</span><span class="spacer"></span><span id="opCount">0 / 3000</span></div>
+        <div class="row small muted" style="margin-top:-4px"><span>📍 보내는 화면·기기 정보(${esc(PAGE_NAMES[(opinionFrom || 'home').split('/')[0]] || '홈')} · ${deviceInfo().split(' · ')[0]})가 함께 전달돼요. 개인정보는 받지 않아요.</span><span class="spacer"></span><span id="opCount">0 / 3000</span></div>
         <div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn btn-primary btn-lg" type="submit" id="opSend">📮 보내기</button></div>
       </form>`;
   };

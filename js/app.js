@@ -533,7 +533,8 @@
           </div>
           <ul class="tip-list" style="margin-top:14px">
             <li>각 파트 시작 전 <b>Directions(안내)</b>가 음성으로 나와요. 연습 중엔 [다음 ▶]으로 건너뛸 수 있어요.</li>
-            <li>음성이 나오는 동안 <b>🔊 재생 시간</b>, 이후 <b>PREPARATION TIME → 삐 소리 → RESPONSE TIME</b> 타이머가 진행돼요.</li>
+            <li>음성이 나오는 동안 <b>🔊 재생 시간</b>, 이후 <b>PREPARATION TIME → 삐 소리 → RESPONSE TIME → 삐 + Stop Talking</b> 순서로 진행돼요.</li>
+            <li>실제 시험처럼 맨 처음 <b>전체 안내</b>, 맨 끝에 <b>Que. 1~11 확인 화면</b>이 나와요. 녹음했다면 여기서 바로 다시 들을 수 있어요.</li>
             <li>Part 4 질문은 실제 시험처럼 화면에 안 보여요. 음성이 안 들리면 <b>[📄 텍스트로 보기]</b>를 누르세요.</li>
             <li>끝나면 <b>AI 피드백 화면</b>에서 모범답안 확인 · 피드백을 받을 수 있어요.</li>
           </ul>
@@ -578,27 +579,36 @@
     if (!('speechSynthesis' in window)) return null;
     const vs = speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang));
     if (!vs.length) return null;
+    const us = vs.filter(v => /en[-_]US/i.test(v.lang));
+    const natural = us.filter(v => /Natural/i.test(v.name));
     return vs.find(v => v.name === S.settings.voice)
-      || vs.find(v => /en[-_]US/i.test(v.lang) && /(Natural|Online|Google US|Aria|Jenny|Guy)/i.test(v.name))
-      || vs.find(v => /en[-_]US/i.test(v.lang)) || vs[0];
+      // 엣지의 Natural 음성이 가장 사람 같아서 1순위 (여성 안내 음성 → 그 외 Natural 순)
+      || ['Aria', 'Jenny', 'Ava', 'Emma', 'Michelle'].map(n => natural.find(v => v.name.includes(n))).find(Boolean)
+      || natural[0]
+      || us.find(v => /(Online|Google US)/i.test(v.name))
+      || us[0] || vs[0];
   }
+  // 예전 버전에서 저장된 기계 음성·0.95배속을 한 번만 초기화 → Natural 음성 1.0배속이 기본값이 됨
+  if (!S.settings.voiceV2) { S.settings.voice = ''; S.settings.rate = 1; S.settings.voiceV2 = true; save(); }
+  const vol = () => Math.min(1, Math.max(0, S.settings.volume == null ? 1 : +S.settings.volume));
   if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { };
   function speakSimple(text) {
     if (!('speechSynthesis' in window)) return toast('이 브라우저는 음성을 지원하지 않아요');
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     const v = pickVoice(); if (v) u.voice = v;
-    u.lang = 'en-US'; u.rate = +S.settings.rate || 0.95;
+    u.lang = 'en-US'; u.rate = +S.settings.rate || 1; u.volume = vol();
     speechSynthesis.speak(u);
   }
   let actx;
   function beep() {
+    if (!vol()) return;
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       const o = actx.createOscillator(), g = actx.createGain();
       o.type = 'sine'; o.frequency.value = 1000;
       g.gain.setValueAtTime(0.0001, actx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.25, actx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.25 * vol(), actx.currentTime + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.45);
       o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.5);
     } catch (e) { }
@@ -614,6 +624,18 @@
     4: { t: 'Questions 8–10: Respond to Questions Using Information Provided', d: 'In this part of the test, you will answer three questions based on the information provided. You will have 45 seconds to read the information before the questions begin. You will have three seconds to prepare and 15 seconds to respond to Questions 8 and 9. You will hear Question 10 two times. You will have three seconds to prepare and 30 seconds to respond to Question 10.' },
     5: { t: 'Question 11: Express an Opinion', d: 'In this part of the test, you will give your opinion about a specific topic. Be sure to say as much as you can in the time allowed. You will have 45 seconds to prepare. Then you will have 60 seconds to speak.' }
   };
+  // 시험 시작 전 전체 안내 (실제 시험의 Speaking Test Directions 화면 구성을 따름)
+  const INTRO = [
+    'This is the TOEIC Speaking test. There are eleven questions in this test, and it takes about twenty minutes. Each type of question has its own directions, which tell you how much time you have to prepare and to speak.',
+    'Try to say as much as you can in the time given. Speak clearly, and make sure you answer each question as the directions ask.'
+  ];
+  const INTRO_TABLE = [
+    ['1–2', 'Read a text aloud', 'pronunciation<br>intonation and stress'],
+    ['3–4', 'Describe a picture', 'all of the above, plus<br>grammar · vocabulary · cohesion'],
+    ['5–7', 'Respond to questions', 'all of the above, plus<br>relevance · completeness of content'],
+    ['8–10', 'Respond to questions using information provided', 'all of the above'],
+    ['11', 'Express an opinion', 'all of the above']
+  ];
   let R = null; // 현재 실행 중인 시험 상태
 
   async function runCBT(units, test, opts) {
@@ -622,7 +644,14 @@
     const cbt = $('#cbt');
     const full = test.mode === 'full';
     cbt.innerHTML = `
-      <div class="cbt-top"><div class="title">Speaking Test<small>Practice</small></div><div class="rec" id="cRec"><i></i>REC</div><div class="qn" id="cQn"></div></div>
+      <div class="cbt-top">
+        <div class="cbt-logo">TOEIC<br><b>ETS</b></div>
+        <div class="title">TOEIC Speaking</div>
+        <div class="rec" id="cRec"><i></i>REC</div>
+        <div class="qn" id="cQn"></div>
+        <button class="cbt-vol" id="cVol">VOLUME</button>
+      </div>
+      <div class="cbt-volbox hidden" id="cVolBox">🔈<input type="range" id="cVolRange" min="0" max="1" step="0.1" value="${vol()}">🔊</div>
       <div class="cbt-body"><div class="cbt-panel">
         <div id="cContent"></div>
         <div class="cbt-status">
@@ -631,6 +660,7 @@
           <div id="cCaption" class="caption hidden"></div>
         </div>
       </div></div>
+      <div class="cbt-guide"><b>🔊 안내 스크립트</b><ol id="cGuide"></ol></div>
       <div class="cbt-bottom">
         <button class="cbt-btn" id="cCapBtn">📄 텍스트로 보기</button>
         <button class="cbt-btn" id="cPause">⏸ 일시정지</button>
@@ -638,13 +668,22 @@
         <span class="small" id="cHint" style="color:#555"></span>
         <button class="cbt-btn" id="cSkip">다음 ▶</button>
         <button class="cbt-btn" id="cExit">시험 종료</button>
-      </div>`;
+      </div>
+      <div class="cbt-pop hidden" id="cPop"><div class="cbt-pop-box"><div class="hd">TOEIC Speaking</div><div class="bd" id="cPopText"></div></div></div>`;
     cbt.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     if (opts.fullscreen && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { });
 
     const setQn = t => { $('#cQn').textContent = t; };
     const setContent = html => { $('#cContent').innerHTML = html; };
+    // 하단 '안내 스크립트' 띠 (실제 시험처럼 번호 붙은 한글 안내)
+    const setGuide = (...lines) => { $('#cGuide').innerHTML = lines.map(l => `<li>${l}</li>`).join(''); };
+    const showPop = (text, ms) => new Promise(res => {
+      $('#cPopText').textContent = text; $('#cPop').classList.remove('hidden');
+      setTimeout(() => { $('#cPop').classList.add('hidden'); res(); }, ms);
+    });
+    $('#cVol').onclick = () => $('#cVolBox').classList.toggle('hidden');
+    $('#cVolRange').oninput = e => { S.settings.volume = +e.target.value; saveSoon(); };
     const setTimerHtml = html => { $('#cTimer').innerHTML = html; };
     const renderCaption = () => {
       const c = $('#cCaption');
@@ -727,13 +766,14 @@
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         const v = pickVoice(); if (v) u.voice = v;
-        u.lang = 'en-US'; u.rate = +S.settings.rate || 0.95;
+        u.lang = 'en-US'; u.rate = +S.settings.rate || 1; u.volume = vol();
         let started = false;
         u.onstart = () => { started = true; };
         u.onend = finish;
         u.onerror = e => { if (e.error === 'interrupted' || e.error === 'canceled') finish(); else fallback(); };
         speechSynthesis.speak(u);
-        to = setTimeout(() => { if (!started && !speechSynthesis.speaking && !done) { speechSynthesis.cancel(); fallback(); } }, 3000);
+        // Natural(온라인) 음성은 첫 소리가 늦게 나올 수 있어 5초까지 기다림
+        to = setTimeout(() => { if (!started && !speechSynthesis.speaking && !done) { speechSynthesis.cancel(); fallback(); } }, 5000);
         hard = setTimeout(() => { if (!R.paused) finish(); }, est * 2 + 4000); // 음성이 멈춰버리는 브라우저 버그 대비
       } catch (e) { fallback(); }
     });
@@ -808,15 +848,29 @@
       Rec.sr = null;
     }
 
-    // 문항 1개의 응답 구간: 삐 → 녹음 → 답변 타이머 → 녹음 종료
-    async function respond(qi, secs) {
+    const answered = new Set();
+    // 준비 구간: 짧은 멈춤 → 삐 → 준비 타이머
+    async function prep(secs) {
+      setGuide('준비 시간입니다. 화면을 보며 답변을 준비하세요.', '준비 시간이 끝나면 삐 소리와 함께 답변 시간이 시작됩니다.');
+      await guard(waitMs(300));
       beep();
-      await guard(waitMs(400));
+      await guard(waitMs(300));
+      await guard(countdown('prep', secs));
+    }
+    // 응답 구간: 삐 → 녹음 → 답변 타이머 → 녹음 종료 → 삐 + Stop Talking 팝업 → 다음 문제
+    async function respond(qi, secs) {
+      setGuide('삐 소리가 나면 답변을 시작하세요.', '답변 시간이 끝나면 녹음이 자동으로 끝나고 다음 문제로 넘어갑니다.');
+      await guard(waitMs(200));
+      beep();
+      await guard(waitMs(500));
       recStart();
       try { await guard(countdown('resp', secs)); }
       finally { await recStop(qi); }
+      answered.add(qi);
+      beep();
+      await showPop('Stop Talking', 1600);
       setTimerHtml('');
-      await guard(waitMs(600));
+      await guard(waitMs(900));
     }
 
     // 마이크 준비
@@ -835,26 +889,38 @@
     let lastPart = 0;
 
     try {
+      // 시험 전체 안내 (실전 11문항일 때만)
+      if (full) {
+        setQn('');
+        setContent(`<div class="cbt-dir-title">Speaking Test Directions</div><div class="cbt-dir">${esc(INTRO[0])}</div>
+          <table class="cbt-intro-table"><tr><th>Question</th><th>Task</th><th>Evaluation Criteria</th></tr>
+          ${INTRO_TABLE.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</table>
+          <div class="cbt-dir">${esc(INTRO[1])}</div>`);
+        setGuide('시험 전체 안내입니다. 음성을 잘 들어 주세요.', '안내가 끝나면 자동으로 Questions 1-2가 시작됩니다.');
+        await guard(say(INTRO.join(' ')));
+        await guard(waitMs(1200));
+      }
       for (const u of units) {
         const p = u.part;
         // 파트 안내(Directions)
         if (p !== lastPart) {
           lastPart = p;
-          setQn('Directions');
+          setQn('');
           setContent(`<div class="cbt-dir-title">${DIRECTIONS[p].t}</div><div class="cbt-dir">${esc(DIRECTIONS[p].d)}</div>`);
-          $('#cHint').textContent = R.ttsWarned ? $('#cHint').textContent : '안내는 [다음 ▶]으로 건너뛸 수 있어요';
+          setGuide('Directions 화면입니다. 파트 안내 음성을 잘 들어 주세요.', '안내가 끝나면 자동으로 문제가 시작됩니다.');
           await guard(say(DIRECTIONS[p].d));
-          await guard(waitMs(800));
-          if (!R.ttsWarned) $('#cHint').textContent = '';
+          await guard(waitMs(1200));
         }
 
         if (p === 1 || p === 2) {
           const qi = qIndex(u, 0);
           setQn(qLabel(qi));
           setContent(p === 1 ? `<div class="cbt-text">${esc(u.text)}</div>` : imgTag(u, 'cbt-img'));
+          setGuide('문제 화면입니다. 안내 음성이 끝나면 준비 시간이 시작됩니다.');
+          await guard(waitMs(600));
           await guard(say('Begin preparing now.'));
-          beep();
-          await guard(countdown('prep', PART_INFO[p].prep));
+          await prep(PART_INFO[p].prep);
+          setTimerHtml('');
           await guard(say(p === 1 ? 'Begin reading aloud now.' : 'Begin speaking now.'));
           await respond(qi, respSecs(p, 0));
         }
@@ -865,10 +931,11 @@
             setQn(qLabel(qi));
             // 첫 문항은 상황 설명을 먼저 읽은 뒤 질문을 보여줌
             setContent(`<div class="cbt-intro">${esc(u.intro)}</div><div class="cbt-q" id="cQ" ${s === 0 ? 'style="visibility:hidden"' : ''}>${esc(u.questions[s].q)}</div>`);
-            if (s === 0) { await guard(say(u.intro)); $('#cQ').style.visibility = 'visible'; }
+            setGuide('질문을 잘 들어 주세요. 질문이 끝나면 짧은 준비 시간이 주어집니다.');
+            await guard(waitMs(500));
+            if (s === 0) { await guard(say(u.intro)); await guard(waitMs(500)); $('#cQ').style.visibility = 'visible'; }
             await guard(say(u.questions[s].q));
-            beep();
-            await guard(countdown('prep', PART_INFO[3].prep));
+            await prep(PART_INFO[3].prep);
             await respond(qi, respSecs(3, s));
           }
         }
@@ -878,6 +945,7 @@
           setQn(qLabel(q0));
           setContent(infoTable(u));
           R.caption = ''; renderCaption();
+          setGuide('화면의 정보를 읽는 시간입니다.', '읽는 시간이 끝나면 음성으로 질문이 나옵니다. 질문은 화면에 표시되지 않습니다.');
           await guard(countdown('prep', PART_INFO[4].read));
           setTimerHtml('');
           await guard(say(u.narrator || ''));
@@ -885,10 +953,11 @@
             const qi = qIndex(u, s);
             setQn(qLabel(qi));
             const q = u.questions[s].q;
+            setGuide(s === 2 ? 'Question 10은 질문을 두 번 들려 드립니다.' : '질문을 잘 들어 주세요. 질문이 끝나면 짧은 준비 시간이 주어집니다.');
+            await guard(waitMs(500));
             await guard(say(q));
-            if (s === 2) { await guard(waitMs(900)); await guard(say(q)); }
-            beep();
-            await guard(countdown('prep', PART_INFO[4].prep));
+            if (s === 2) { await guard(waitMs(1200)); await guard(say(q)); }
+            await prep(PART_INFO[4].prep);
             await respond(qi, respSecs(4, s));
           }
         }
@@ -897,10 +966,13 @@
           const qi = qIndex(u, 0);
           setQn(qLabel(qi));
           setContent(`<div class="cbt-q">${esc(u.question)}</div>`);
+          setGuide('질문을 잘 들어 주세요. 안내 음성이 끝나면 준비 시간이 시작됩니다.');
+          await guard(waitMs(600));
           await guard(say(u.question.replace(/•/g, '')));
+          await guard(waitMs(400));
           await guard(say('Begin preparing now.'));
-          beep();
-          await guard(countdown('prep', PART_INFO[5].prep));
+          await prep(PART_INFO[5].prep);
+          setTimerHtml('');
           await guard(say('Begin speaking now.'));
           await respond(qi, respSecs(5, 0));
         }
@@ -920,13 +992,26 @@
     setQn('');
     setTimerHtml('');
     $('#cListen').innerHTML = '';
-    setContent(`<div style="text-align:center;padding:60px 0">
-      <div style="font-size:54px">${test.done ? '🎉' : '🛑'}</div>
-      <div class="cbt-dir-title" style="margin-top:10px">${test.done ? 'This is the end of the test.' : 'The test has been stopped.'}</div>
-      <p class="cbt-dir">${test.done ? '수고하셨어요! 이제 모범답안을 확인하고 AI 피드백을 받아 보세요.' : '지금까지 푼 문항까지 저장했어요.'}</p>
-      <button class="cbt-btn primary" id="cDone" style="font-size:16px;padding:10px 22px">결과 보기 · AI 피드백 ▶</button></div>`);
-    $('#cSkip').disabled = true; $('#cPause').disabled = true; $('#cExit').disabled = true;
-    $('#cDone').onclick = closeCBT;
+    $('#cPop').classList.add('hidden');
+    R.capOpen = false; renderCaption();
+    // 마지막 화면: 실제 시험처럼 Que. 1~11 확인 + SUBMIT
+    setGuide(`답변을 마친 문항에는 ✔ 표시가 있어요.${test.recording ? ' <b>Que. 버튼</b>을 누르면 내 녹음을 들을 수 있어요.' : ''}`, '<b>SUBMIT</b>을 누르면 결과 · AI 피드백 화면으로 이동합니다.');
+    setContent(`<div class="cbt-dir-title" style="margin-top:10px">${test.done ? 'This is the end of the Speaking test.' : 'The test has been stopped.'}</div>
+      <p class="cbt-dir" style="text-align:center">${test.done ? '수고하셨어요! 이제 모범답안을 확인하고 AI 피드백을 받아 보세요.' : '지금까지 푼 문항까지 저장했어요.'}</p>
+      <div class="cbt-review">${test.qs.map((q, i) => `<button class="cbt-que ${answered.has(i) ? 'done' : ''}" data-qi="${i}">Que.<br>${q.num}</button>`).join('')}</div>
+      <button class="cbt-submit" id="cDone">SUBMIT</button>`);
+    let player = null;
+    $$('.cbt-que').forEach(b => b.onclick = () => {
+      const a = AUDIO[test.id + ':' + b.dataset.qi];
+      if (player) { player.pause(); $$('.cbt-que').forEach(x => x.classList.remove('playing')); }
+      if (!a) return toast(test.recording ? '이 문항은 녹음이 없어요' : '녹음 없이 푼 시험이에요');
+      player = new Audio(a.url); player.volume = vol();
+      b.classList.add('playing');
+      player.onended = () => b.classList.remove('playing');
+      player.play().catch(() => b.classList.remove('playing'));
+    });
+    $('#cSkip').disabled = true; $('#cPause').disabled = true; $('#cExit').disabled = true; $('#cCapBtn').disabled = true;
+    $('#cDone').onclick = () => { if (player) player.pause(); closeCBT(); };
   }
   function closeCBT() {
     const id = R && R.test && R.test.id;
@@ -1532,7 +1617,8 @@ Fill the fields as follows:
       <h3 style="margin-top:18px">🔊 시험 음성</h3>
       <label class="field"><span>목소리 ${voices.length ? '' : '<small class="muted">(불러오는 중이거나 지원하지 않는 브라우저예요)</small>'}</span>
         <select class="select" id="setVoice">${voices.map(v => `<option value="${esc(v.name)}" ${cur && cur.name === v.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></label>
-      <label class="field"><span>말하기 속도 <b id="rateVal">${S.settings.rate}</b></span><input type="range" id="setRate" min="0.7" max="1.2" step="0.05" value="${S.settings.rate}" style="width:100%"></label>
+      <p class="small muted" style="margin:-6px 0 10px">💡 <b>엣지(Edge)</b>에서는 사람처럼 자연스러운 <b>Natural</b> 음성이 자동으로 선택돼요. 크롬은 기계 음성만 있어요.</p>
+      <label class="field"><span>말하기 속도 <b id="rateVal">${S.settings.rate}</b> <small class="muted">(실제 시험은 1.0)</small></span><input type="range" id="setRate" min="0.7" max="1.2" step="0.05" value="${S.settings.rate}" style="width:100%"></label>
       <button class="btn" type="button" id="voiceTest">🔊 들어보기</button>
       <h3 style="margin-top:20px">💾 백업</h3>
       <p class="small muted" style="margin-top:0">내가 추가한 문제 · 북마크 · 풀이 기록 · 피드백을 파일로 저장하거나 불러와요.</p>
@@ -1805,7 +1891,16 @@ Fill the fields as follows:
     const wc = $('#wc-' + ta.dataset.my); if (wc) wc.textContent = `(${wordCount(ta.value)}단어)`;
     saveSoon();
   });
-  $('#openSettings').onclick = settingsModal;
+  $('#openSettings').onclick = () => { setMenu(false); settingsModal(); };
+  // 휴대폰 ☰ 메뉴
+  function setMenu(open) {
+    document.body.classList.toggle('menu-open', open);
+    $('#menuBtn').setAttribute('aria-expanded', open);
+  }
+  $('#menuBtn').onclick = () => setMenu(!document.body.classList.contains('menu-open'));
+  $('#scrim').onclick = () => setMenu(false);
+  $('#sidebar').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
+  window.addEventListener('hashchange', () => setMenu(false));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) closeModal(); });
 
   render();

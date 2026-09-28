@@ -260,6 +260,7 @@
     $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.nav === route));
     const y = window.scrollY;
     $('#view').innerHTML = VIEWS[route](routeArg);
+    if (route === 'mock') updateVoiceNotice();
     if (!keepScroll) track('page_view', { page_title: PAGE_NAMES[route] || route, page_location: location.origin + location.pathname + route + (routeArg && !/^t-/.test(routeArg) ? '/' + routeArg : '') });
     window.scrollTo(0, keepScroll ? y : 0);
     updateBmCount();
@@ -638,6 +639,7 @@
           <label class="opt"><input type="radio" name="recMode" value="norec" ${ONLINE ? 'checked' : ''}><div><b>⏱️ 녹음 없이 풀기</b><span>문제 + 타이머만 진행. 끝난 뒤 내 답변을 직접 적어서 AI 피드백을 받아요.</span></div></label>
           <label class="row small ${ONLINE ? 'hidden' : ''}" style="margin:4px 2px 12px"><input type="checkbox" id="optStt" ${SR && !ONLINE ? 'checked' : 'disabled'}> 녹음할 때 자동 받아쓰기 ${SR ? '<span class="muted">(Chrome·Edge 음성인식, 음성이 구글/MS 서버로 전송돼요)</span>' : '<span class="muted">— 이 브라우저는 지원하지 않아요 (Chrome·Edge 권장)</span>'}</label>
           <label class="row small" style="margin:0 2px 14px"><input type="checkbox" id="optFull" checked> 전체 화면으로 진행</label>
+          <div class="notice small hidden" id="voiceNotice" style="margin-bottom:12px">🔊 지금은 <b>기기 기본 음성</b>이라 실제 시험보다 조금 어색할 수 있어요. 실제 시험과 가장 비슷한 음성은 <b>PC의 엣지(Edge) 브라우저</b>예요. <span class="muted">(휴대폰이라면 📄 텍스트로 보기를 함께 활용해 보세요)</span></div>
           <div class="row">
             <button class="btn" data-act="voice-test">🔊 음성 테스트</button>
             <span class="spacer"></span>
@@ -693,7 +695,15 @@
   // 예전 버전에서 저장된 기계 음성·0.95배속을 한 번만 초기화 → Natural 음성 1.0배속이 기본값이 됨
   if (!S.settings.voiceV2) { S.settings.voice = ''; S.settings.rate = 1; S.settings.voiceV2 = true; save(); }
   const vol = () => Math.min(1, Math.max(0, S.settings.volume == null ? 1 : +S.settings.volume));
-  if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { };
+  // 실전 모드: Natural 음성이 없는 기기(휴대폰·크롬 등)에서만 '음성이 어색할 수 있어요' 안내를 보여줌
+  function updateVoiceNotice() {
+    const el = $('#voiceNotice'); if (!el) return;
+    const vs = enVoices();
+    if (!vs.length) return; // 목록이 아직 안 불러와졌으면 판단 보류 (다 불러오면 다시 호출됨)
+    const v = pickVoice();
+    el.classList.toggle('hidden', !!(v && /Natural/i.test(v.name)));
+  }
+  if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => updateVoiceNotice();
   function speakSimple(text) {
     if (!('speechSynthesis' in window)) return toast('이 브라우저는 음성을 지원하지 않아요');
     speechSynthesis.cancel();

@@ -78,6 +78,8 @@ a { color: var(--primary); }
 .updates details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margin: 4px 0 2px 46px; }
 .up-cta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .up-cta span { flex: 1; min-width: 220px; }
+details.adv { margin: 4px 0 6px; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+details.adv > summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600; }
 .local-notice { margin: 16px 0 0; line-height: 1.6; }
 .link-btn { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--primary); text-decoration: underline; cursor: pointer; }
 .privacy h3 { margin: 18px 0 6px; } .privacy h3:first-child { margin-top: 0; }

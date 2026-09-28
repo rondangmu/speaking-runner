@@ -386,6 +386,7 @@
 
   /* 업데이트 소식 — 새로 올릴 때 맨 위에 한 줄 추가 [날짜, 내용]. 맨 위 한 줄에만 7일간 NEW 표시 */
   const UPDATES = [
+    ['2026-09-28', '실전 모드 중간에 <b>[시험 종료]로 바로 나갈 수</b> 있어요'],
     ['2026-09-28', '<b>구글 로그인</b> — 기기를 바꿔도 연속 학습·북마크가 이어져요'],
     ['2026-09-28', '문제은행을 <b>카테고리별로 정리</b>하고, 파트4 새 문제 8개 추가'],
     ['2026-09-28', '파트1 지문을 <b>실제 시험 길이</b>(약 80단어)로 늘렸어요'],
@@ -813,8 +814,12 @@
     };
     $('#cSkip').onclick = () => { R.skip = true; };
     $('#cExit').onclick = async () => {
-      if (!(await ask('시험을 종료할까요? 지금까지의 답변은 저장돼요.', { ok: '종료하기', cancel: '계속 풀기' }))) return;
-      R.aborted = true;
+      if (!R.running) return closeCBT('mock'); // 끝 화면에서는 확인 없이 바로 나가기
+      const was = R.paused;
+      if (!was) $('#cPause').click(); // 확인 창을 보는 동안 타이머·음성 멈춤
+      const go = await ask(`아직 ${test.qs.length}문항 중 ${answered.size}문항만 풀었어요.\n시험을 종료하고 나갈까요? 푼 문항은 '최근 실전 기록'에 저장돼요.`, { ok: '나가기', cancel: '계속 풀기' });
+      if (!go) { if (!was) $('#cPause').click(); return; }
+      R.aborted = true; R.exitNow = true;
       try { speechSynthesis.cancel(); } catch (e) { }
     };
 
@@ -1102,6 +1107,7 @@
     if (Rec.stream) Rec.stream.getTracks().forEach(t => t.stop());
     save();
     R.running = false;
+    if (R.exitNow) return closeCBT('mock'); // [시험 종료] → 확인 후 바로 실전 모드 첫 화면으로
     setQn('');
     setTimerHtml('');
     $('#cListen').innerHTML = '';
@@ -1118,22 +1124,24 @@
       const a = AUDIO[test.id + ':' + b.dataset.qi];
       if (player) { player.pause(); $$('.cbt-que').forEach(x => x.classList.remove('playing')); }
       if (!a) return toast(test.recording ? '이 문항은 녹음이 없어요' : '녹음 없이 푼 시험이에요');
-      player = new Audio(a.url); player.volume = vol();
+      player = new Audio(a.url); player.volume = vol(); R.player = player;
       b.classList.add('playing');
       player.onended = () => b.classList.remove('playing');
       player.play().catch(() => b.classList.remove('playing'));
     });
-    $('#cSkip').disabled = true; $('#cPause').disabled = true; $('#cExit').disabled = true; $('#cCapBtn').disabled = true;
+    $('#cSkip').disabled = true; $('#cPause').disabled = true; $('#cCapBtn').disabled = true;
+    $('#cExit').textContent = '나가기';
     $('#cDone').onclick = () => { if (player) player.pause(); closeCBT(); };
   }
-  function closeCBT() {
+  function closeCBT(dest) {
     const id = R && R.test && R.test.id;
+    if (R && R.player) R.player.pause();
     $('#cbt').classList.add('hidden');
     $('#cbt').innerHTML = '';
     document.body.style.overflow = '';
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
     R = null;
-    location.hash = '#feedback/' + id;
+    location.hash = dest === 'mock' ? '#mock' : '#feedback/' + id;
     render();
   }
   window.addEventListener('beforeunload', e => { if (R && R.running) { e.preventDefault(); e.returnValue = ''; } });
@@ -1788,9 +1796,11 @@ Fill the fields as follows:
     openModal(`
       <h2>⚙️ 설정 · 백업 <span class="spacer"></span><button class="btn btn-ghost" data-act="close-modal">✕</button></h2>
       ${ONLINE ? '<div class="notice info" style="margin-bottom:10px">🌐 온라인 공유 버전이에요. AI 피드백은 <b>📋 AI에 피드백 요청</b>(복사 → 쓰고 있는 AI에 붙여넣기)으로 받을 수 있어요.</div>' : ''}
-      <div ${ONLINE ? 'hidden' : ''}>
-      <h3>🤖 AI 피드백 (선택)</h3>
-      <p class="small muted" style="margin-top:0">API 키가 없어도 AI 피드백 화면의 <b>📋 AI에 피드백 요청</b>으로 ChatGPT·Claude·Gemini 등 쓰고 있는 AI에서 (무료·유료 상관없이) 피드백을 받을 수 있어요. 키를 넣으면 <b>🤖 API로 바로 받기</b> 버튼이 추가로 생겨요.</p>
+      <h3>🤖 AI 피드백</h3>
+      <p class="small muted" style="margin-top:0">AI 피드백 화면에서 <b>📋 AI에 피드백 요청</b>을 누르고, <b>ChatGPT·제미나이·클로드 등 쓰고 있는 AI 어디에든</b> 붙여넣으면 돼요. 무료·유료 상관없고, <b>따로 설정할 것은 없어요.</b></p>
+      <details class="adv" ${ONLINE ? 'hidden' : ''} ${S.settings.apiKey ? 'open' : ''}>
+      <summary>고급 설정 · Anthropic API 키가 있는 분만</summary>
+      <p class="small muted" style="margin-top:8px">개발자용 유료 API 키를 넣으면, 복사·붙여넣기 없이 사이트 안에서 바로 피드백을 받는 <b>🤖 API로 바로 받기</b> 버튼이 생겨요. 대부분은 필요 없어요.</p>
       <label class="field"><span>Anthropic API 키</span>
         <div class="row" style="flex-wrap:nowrap"><input class="input" id="setKey" type="password" value="${esc(S.settings.apiKey)}" placeholder="sk-ant-..." autocomplete="off"><button class="btn" type="button" id="keyShow">보기</button></div></label>
       <p class="small muted" style="margin-top:-6px">console.anthropic.com → API Keys에서 발급해요. 키는 <b>이 컴퓨터의 브라우저에만</b> 저장되고, 백업 파일에는 포함되지 않아요. 사용량만큼 요금이 나가요.</p>
@@ -1800,7 +1810,7 @@ Fill the fields as follows:
           <option value="claude-sonnet-5" ${S.settings.model === 'claude-sonnet-5' ? 'selected' : ''}>Claude Sonnet 5 — 빠르고 저렴</option>
           <option value="claude-haiku-4-5" ${S.settings.model === 'claude-haiku-4-5' ? 'selected' : ''}>Claude Haiku 4.5 — 가장 저렴</option>
         </select></label>
-      </div>
+      </details>
       <h3 style="margin-top:18px">🔊 시험 음성</h3>
       <label class="field"><span>목소리 ${voices.length ? '' : '<small class="muted">(불러오는 중이거나 지원하지 않는 브라우저예요)</small>'}</span>
         <select class="select" id="setVoice">${voices.map(v => `<option value="${esc(v.name)}" ${cur && cur.name === v.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></label>

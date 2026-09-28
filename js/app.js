@@ -668,17 +668,26 @@
   /* =========================================================
      10. 음성(TTS) · 효과음
      ========================================================= */
+  // 애플 기기의 장난용·효과음 목소리 (Bad News, Bells, Boing…) — 목록과 자동 선택에서 제외
+  const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Pipe Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Deranged|Hysterical|Junior|Ralph|Fred|Kathy|Princess|Grandma|Grandpa|Eddy|Flo|Reed|Rocko|Sandy|Shelley)\b/i;
+  const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function enVoices() {
+    if (!('speechSynthesis' in window)) return [];
+    return speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang) && !NOVELTY.test(v.name));
+  }
   function pickVoice() {
-    if (!('speechSynthesis' in window)) return null;
-    const vs = speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang));
+    const vs = enVoices();
     if (!vs.length) return null;
     const us = vs.filter(v => /en[-_]US/i.test(v.lang));
     const natural = us.filter(v => /Natural/i.test(v.name));
+    const hq = vs.filter(v => /(Premium|Enhanced|향상|고품질)/i.test(v.name)); // 아이폰에 내려받은 고품질 음성
     return vs.find(v => v.name === S.settings.voice)
-      // 엣지의 Natural 음성이 가장 사람 같아서 1순위 (여성 안내 음성 → 그 외 Natural 순)
+      // 1) 엣지 Natural (가장 사람 같음) 2) 아이폰 고품질 음성 3) 안드로이드 구글 음성 4) 아이폰 기본 중 자연스러운 순
       || ['Aria', 'Jenny', 'Ava', 'Emma', 'Michelle'].map(n => natural.find(v => v.name.includes(n))).find(Boolean)
       || natural[0]
+      || hq.find(v => /en[-_]US/i.test(v.lang)) || hq[0]
       || us.find(v => /(Online|Google US)/i.test(v.name))
+      || ['Ava', 'Zoe', 'Allison', 'Susan', 'Nicky', 'Samantha', 'Evan', 'Tom'].map(n => us.find(v => v.name.startsWith(n))).find(Boolean)
       || us[0] || vs[0];
   }
   // 예전 버전에서 저장된 기계 음성·0.95배속을 한 번만 초기화 → Natural 음성 1.0배속이 기본값이 됨
@@ -1764,7 +1773,7 @@ Fill the fields as follows:
      15. 설정 · 백업
      ========================================================= */
   function settingsModal() {
-    const voices = 'speechSynthesis' in window ? speechSynthesis.getVoices().filter(v => /^en[-_]/i.test(v.lang)) : [];
+    const voices = enVoices();
     const cur = pickVoice();
     openModal(`
       <h2>⚙️ 설정 · 백업 <span class="spacer"></span><button class="btn btn-ghost" data-act="close-modal">✕</button></h2>
@@ -1785,7 +1794,8 @@ Fill the fields as follows:
       <h3 style="margin-top:18px">🔊 시험 음성</h3>
       <label class="field"><span>목소리 ${voices.length ? '' : '<small class="muted">(불러오는 중이거나 지원하지 않는 브라우저예요)</small>'}</span>
         <select class="select" id="setVoice">${voices.map(v => `<option value="${esc(v.name)}" ${cur && cur.name === v.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select></label>
-      <p class="small muted" style="margin:-6px 0 10px">💡 <b>엣지(Edge)</b>에서는 사람처럼 자연스러운 <b>Natural</b> 음성이 자동으로 선택돼요. 크롬은 기계 음성만 있어요.</p>
+      <p class="small muted" style="margin:-6px 0 10px">💡 <b>엣지(Edge)</b>에서는 사람처럼 자연스러운 <b>Natural</b> 음성이 자동으로 선택돼요.</p>
+      ${IS_IOS ? `<div class="notice info small" style="margin:-4px 0 12px">📱 <b>아이폰 음성을 더 자연스럽게:</b> 아이폰 <b>설정 → 손쉬운 사용 → 읽기 및 말하기 → 음성 → 영어 → 미국</b>에서 <b>Ava(프리미엄)</b> 또는 <b>Zoe(프리미엄)</b>를 내려받은 뒤, 이 화면을 다시 열어 목소리에서 고르세요.</div>` : ''}
       <label class="field"><span>말하기 속도 <b id="rateVal">${S.settings.rate}</b> <small class="muted">(실제 시험은 1.0)</small></span><input type="range" id="setRate" min="0.7" max="1.2" step="0.05" value="${S.settings.rate}" style="width:100%"></label>
       <button class="btn" type="button" id="voiceTest">🔊 들어보기</button>
       <h3 style="margin-top:20px">💾 백업</h3>

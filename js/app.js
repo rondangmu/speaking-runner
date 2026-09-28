@@ -379,8 +379,33 @@
           <h3>최근 기록</h3>
           ${recent.length ? recent.map(t => `<div class="row" style="padding:6px 0;border-bottom:1px dashed var(--line)"><span>${esc(t.title)}</span><span class="muted small">${fmtDate(t.date)}</span><span class="spacer"></span><a class="btn btn-sm btn-soft" href="#feedback/${t.id}">보기</a></div>`).join('') : '<p class="muted small">아직 기록이 없어요. 실전 모드로 첫 세트를 풀어 보세요!</p>'}
         </div>
-      </div>`;
+      </div>
+      ${updatesBox()}`;
   };
+
+  /* 업데이트 소식 — 새로 올릴 때 맨 위에 한 줄 추가 [날짜, 내용]. 가장 최근 날짜 항목에 7일간 NEW 표시 */
+  const UPDATES = [
+    ['2026-09-28', '<b>구글 로그인</b> — 기기를 바꿔도 연속 학습·북마크가 이어져요'],
+    ['2026-09-28', '문제은행을 <b>카테고리별로 정리</b>하고, 파트4 새 문제 8개 추가'],
+    ['2026-09-28', '파트1 지문을 <b>실제 시험 길이</b>(약 80단어)로 늘렸어요'],
+    ['2026-09-26', '실전 모드를 <b>실제 시험 화면처럼</b> · 답변 끝나면 Stop Talking 알림'],
+    ['2026-09-26', '<b>📮 의견 보내기</b> 메뉴가 생겼어요'],
+    ['2026-09-26', '휴대폰에서 보기 편하게 <b>☰ 메뉴</b>로 바꿨어요'],
+    ['2026-09-26', '스피킹 러너 오픈 🎉']
+  ];
+  function updatesBox() {
+    const row = ([d, txt]) => {
+      // NEW는 가장 최근 날짜의 항목에만, 그리고 올린 지 7일 이내일 때만
+      const isNew = d === UPDATES[0][0] && Date.now() - new Date(d + 'T00:00:00').getTime() < 7 * 86400000;
+      return `<li><span class="up-date">${d.slice(5).replace('-', '.')}</span>${isNew ? '<span class="up-new">NEW</span>' : ''}<span>${txt}</span></li>`;
+    };
+    return `<section class="updates">
+      <h3>🛠️ 업데이트 소식</h3>
+      <ul>${UPDATES.slice(0, 3).map(row).join('')}</ul>
+      ${UPDATES.length > 3 ? `<details><summary>지난 업데이트 보기</summary><ul>${UPDATES.slice(3).map(row).join('')}</ul></details>` : ''}
+      <div class="up-cta"><span>💬 이런 기능 있으면 좋겠다, 여기가 불편하다 싶은 게 있나요? 보내 주신 의견은 하나하나 읽고 업데이트에 반영할게요.</span><a class="btn btn-sm btn-soft" href="#opinion">📮 의견 보내기</a></div>
+    </section>`;
+  }
 
   /* =========================================================
      8. 파트별 문제은행

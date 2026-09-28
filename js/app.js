@@ -383,7 +383,7 @@
       ${updatesBox()}`;
   };
 
-  /* 업데이트 소식 — 새로 올릴 때 맨 위에 한 줄 추가 [날짜, 내용]. 가장 최근 날짜 항목에 7일간 NEW 표시 */
+  /* 업데이트 소식 — 새로 올릴 때 맨 위에 한 줄 추가 [날짜, 내용]. 맨 위 한 줄에만 7일간 NEW 표시 */
   const UPDATES = [
     ['2026-09-28', '<b>구글 로그인</b> — 기기를 바꿔도 연속 학습·북마크가 이어져요'],
     ['2026-09-28', '문제은행을 <b>카테고리별로 정리</b>하고, 파트4 새 문제 8개 추가'],
@@ -394,15 +394,15 @@
     ['2026-09-26', '스피킹 러너 오픈 🎉']
   ];
   function updatesBox() {
-    const row = ([d, txt]) => {
-      // NEW는 가장 최근 날짜의 항목에만, 그리고 올린 지 7일 이내일 때만
-      const isNew = d === UPDATES[0][0] && Date.now() - new Date(d + 'T00:00:00').getTime() < 7 * 86400000;
+    const row = ([d, txt], i) => {
+      // NEW는 맨 위(가장 최신) 딱 한 줄에만, 올린 지 7일 이내일 때만
+      const isNew = i === 0 && Date.now() - new Date(d + 'T00:00:00').getTime() < 7 * 86400000;
       return `<li><span class="up-date">${d.slice(5).replace('-', '.')}</span>${isNew ? '<span class="up-new">NEW</span>' : ''}<span>${txt}</span></li>`;
     };
     return `<section class="updates">
       <h3>🛠️ 업데이트 소식</h3>
       <ul>${UPDATES.slice(0, 3).map(row).join('')}</ul>
-      ${UPDATES.length > 3 ? `<details><summary>지난 업데이트 보기</summary><ul>${UPDATES.slice(3).map(row).join('')}</ul></details>` : ''}
+      ${UPDATES.length > 3 ? `<details><summary>지난 업데이트 보기</summary><ul>${UPDATES.slice(3).map((u, i) => row(u, i + 3)).join('')}</ul></details>` : ''}
       <div class="up-cta"><span>💬 이런 기능 있으면 좋겠다, 여기가 불편하다 싶은 게 있나요? 보내 주신 의견은 하나하나 읽고 업데이트에 반영할게요.</span><a class="btn btn-sm btn-soft" href="#opinion">📮 의견 보내기</a></div>
     </section>`;
   }

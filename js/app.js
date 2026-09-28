@@ -383,6 +383,17 @@
   /* =========================================================
      8. 파트별 문제은행
      ========================================================= */
+  // 문제은행 카테고리 (Part 3은 묶지 않음). Part 1은 어조 기준 → [id, 이름, 어조]
+  const CATS = {
+    1: [['notice', '📢 공지·안내 방송', '차분하고 명확하게'], ['ad', '📣 광고', '밝고 활기차게'], ['news', '📰 뉴스·보도', '또박또박 객관적으로'], ['intro', '🎤 인물 소개', '정중하고 환영하는 느낌으로'], ['tour', '🧭 투어·가이드', '친절하게 설명하듯'], ['voice', '☎️ 음성 메시지', '친근한 대화체로']],
+    2: [['office', '사무실·회의'], ['food', '식당·카페·주방'], ['shop', '상점·시장'], ['outdoor', '공원·야외'], ['street', '거리·교통·현장'], ['school', '학교·도서관']],
+    4: [['event', '행사·프로그램 일정'], ['class', '강의·교육 시간표'], ['interview', '면접 일정'], ['personal', '개인·출장 일정'], ['resume', '이력서'], ['launch', '출시 일정'], ['etc', '여행·기타']],
+    5: [['edu', '교육'], ['work', '직장'], ['tech', '기술'], ['life', '생활·여가'], ['society', '사회·환경·건강']]
+  };
+  const catLabel = c => c[2] ? `${c[1]} (${c[2]})` : c[1];
+  // Part 5 주제의 '교육 · ' 같은 앞머리는 카테고리 제목과 겹쳐서 목록에선 뺌
+  const shortTopic = it => it.part === 5 ? String(it.topic || '').replace(/^(교육|직장|기술|생활|여가|쇼핑|사회|환경|건강) · /, '') : (it.topic || '');
+
   VIEWS.bank = arg => {
     const p = [1, 2, 3, 4, 5].includes(+arg) ? +arg : 1;
     const info = PART_INFO[p];
@@ -416,15 +427,34 @@
         </div>
       </div>
       <div style="margin-top:14px" id="bankList">
-        ${items.map((it, n) => {
+        ${bankGroups(p, items).map(([cat, list]) => {
+          const inner = list.map((it, n) => qcardHtml(it, n, cat)).join('');
+          if (!cat) return inner; // Part 3: 묶지 않고 그대로
+          const doneC = list.filter(it => S.marks[it.id] === 'done').length;
+          return `<details class="cat-group" data-cat="${esc(cat[0])}">
+            <summary><span class="cat-name">${esc(catLabel(cat))}</span><span class="spacer"></span><span class="cat-count">${list.length}문제 · 외움 ${doneC}</span></summary>
+            <div class="cat-body">${inner}</div></details>`;
+        }).join('') || '<div class="empty"><div class="e">📭</div>아직 문제가 없어요.</div>'}
+        <div class="empty hidden" id="bankEmpty"><div class="e">🔍</div>조건에 맞는 문제가 없어요.</div>
+      </div>`;
+  };
+  // 카테고리 순서대로 묶기. 카테고리가 없는 문제(내가 추가한 문제 등)는 맨 끝 묶음으로
+  function bankGroups(p, items) {
+    if (!CATS[p]) return [[null, items]];
+    const groups = CATS[p].map(c => [c, items.filter(it => it.cat === c[0])]);
+    const rest = items.filter(it => !CATS[p].some(c => c[0] === it.cat));
+    if (rest.length) groups.push([['mine', '내가 추가한 문제'], rest]);
+    return groups.filter(g => g[1].length);
+  }
+  function qcardHtml(it, n, cat) {
           const st = S.marks[it.id] || 'new';
           const preview = it.part === 1 ? it.text : it.part === 2 ? (it.alt || '') : it.part === 3 ? it.questions.map(q => q.q).join(' / ') : it.part === 4 ? it.title + ' — ' + it.questions.map(q => q.q).join(' / ') : it.question.replace(/^Do you agree or disagree with the following statement\?\s*/, '').replace(/\n/g, ' ');
           return `
-          <div class="qcard collapsed" id="q-${esc(it.id)}" data-st="${st}" data-s="${esc((it.topic + ' ' + preview).toLowerCase())}">
+          <div class="qcard collapsed" id="q-${esc(it.id)}" data-st="${st}" data-s="${esc(((cat ? cat[1] + ' ' : '') + it.topic + ' ' + preview).toLowerCase())}">
             <div class="qcard-head" data-act="qcard-toggle">
               <span class="qnum">${n + 1}</span>
               ${it.custom ? '<span class="chip chip-amber">내 문제</span>' : ''}
-              <b>${esc(it.topic || '')}</b>
+              <b>${esc(shortTopic(it))}</b>
               <span class="qprev">${esc(preview.slice(0, 90))}</span>
               <span class="spacer"></span>
               <span class="st-btns">
@@ -444,10 +474,7 @@
               <div class="answers hidden"></div>
             </div>
           </div>`;
-        }).join('') || '<div class="empty"><div class="e">📭</div>아직 문제가 없어요.</div>'}
-        <div class="empty hidden" id="bankEmpty"><div class="e">🔍</div>조건에 맞는 문제가 없어요.</div>
-      </div>`;
-  };
+  }
   function filterBank() {
     const q = ($('#bankSearch') || {}).value ? $('#bankSearch').value.trim().toLowerCase() : '';
     const st = ($('#bankStatus .active') || {}).dataset ? $('#bankStatus .active').dataset.st : 'all';
@@ -456,9 +483,17 @@
       const ok = (!q || c.dataset.s.includes(q)) && (st === 'all' || c.dataset.st === st);
       c.classList.toggle('hidden', !ok); if (ok) shown++;
     });
+    // 맞는 문제가 없는 카테고리는 숨기고, 검색·필터 중이면 결과가 있는 카테고리를 펼쳐 보여줌
+    const filtering = !!q || st !== 'all';
+    $$('#bankList .cat-group').forEach(g => {
+      const n = $$('.qcard:not(.hidden)', g).length;
+      g.classList.toggle('hidden', n === 0);
+      if (filtering && n) g.open = true;
+    });
     const e = $('#bankEmpty'); if (e) e.classList.toggle('hidden', shown > 0);
   }
   function openQcard(card) {
+    const g = card.closest('.cat-group'); if (g) g.open = true;
     card.classList.remove('collapsed');
     const box = $('.answers', card);
     if (box && !box.dataset.ready) {
@@ -1820,6 +1855,7 @@ Fill the fields as follows:
     'bank-expand': el => {
       const open = el.textContent.includes('펼치기');
       $$('#bankList .qcard:not(.hidden)').forEach(c => open ? openQcard(c) : c.classList.add('collapsed'));
+      if (!open) $$('#bankList .cat-group').forEach(g => { g.open = false; });
       el.textContent = open ? '모두 접기' : '모두 펼치기';
     },
     'toggle-ans': el => {

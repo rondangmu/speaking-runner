@@ -301,6 +301,17 @@ audio { width: 100%; max-width: 420px; height: 38px; }
 .qcard.collapsed:hover { border-color: #c9ccdb; }
 .qnum { flex-shrink: 0; min-width: 30px; height: 26px; border-radius: 8px; background: var(--bg); color: var(--ink-2); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
 .qcard-head b { white-space: nowrap; }
+/* 문제은행 카테고리 묶음 */
+.cat-group { margin-bottom: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+.cat-group > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 16px; }
+.cat-group > summary::-webkit-details-marker { display: none; }
+.cat-group > summary::before { content: '▸'; color: var(--muted); transition: transform .15s; }
+.cat-group[open] > summary::before { transform: rotate(90deg); }
+.cat-group > summary:hover { background: var(--bg); border-radius: var(--radius); }
+.cat-count { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.cat-body { padding: 0 14px 4px; }
+.cat-body .qcard { box-shadow: none; }
+@media (max-width: 760px) { .cat-group > summary { padding: 14px; font-size: 15px; flex-wrap: wrap; } .cat-body { padding: 0 8px 2px; } }
 .qprev { color: var(--muted); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .qcard:not(.collapsed) .qprev { display: none; }
 .st-btns { display: inline-flex; gap: 4px; flex-shrink: 0; }

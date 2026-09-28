@@ -112,6 +112,7 @@
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(S)); }
     catch (e) { toast('⚠️ 저장 공간이 부족해요. 설정에서 백업 후 오래된 기록을 지워 주세요.'); }
+    cloudSoon(); // 로그인 중이면 계정에도 저장
   }
   let saveTimer;
   const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); };
@@ -1569,7 +1570,7 @@ Fill the fields as follows:
   // web3forms.com에서 개발자 이메일로 발급받은 Access Key (공개돼도 되는 전송 전용 키)
   const WEB3FORMS_KEY = '4503d05b-f211-4d23-b10d-0f2229f77842';
   const OPINION_TYPES = [['💡 개선 제안', '더 좋아졌으면 하는 점, 있었으면 하는 기능'], ['🐞 오류 신고', '안 되거나 이상하게 동작하는 부분'], ['💬 기타', '어떤 의견이든 좋아요']];
-  const PAGE_NAMES = { home: '홈', bank: '파트별 문제은행', mock: '실전 모드', feedback: 'AI 피드백', topics: '주제별 공략', bookmarks: '북마크', opinion: '의견 보내기' };
+  const PAGE_NAMES = { home: '홈', bank: '파트별 문제은행', mock: '실전 모드', feedback: 'AI 피드백', topics: '주제별 공략', bookmarks: '북마크', opinion: '의견 보내기', privacy: '개인정보 처리 안내' };
   const deviceInfo = () => {
     const ua = navigator.userAgent;
     const kind = /iPhone|iPad|Android|Mobile/i.test(ua) ? '휴대폰·태블릿' : 'PC';
@@ -1768,7 +1769,11 @@ Fill the fields as follows:
         <span class="spacer"></span>
         <button class="btn btn-ghost btn-danger" type="button" id="bkReset">전체 초기화</button>
       </div>
+      ${CLOUD.user ? `<h3 style="margin-top:20px">👤 계정</h3>
+      <p class="small muted" style="margin-top:0">${esc(CLOUD.user.email || '')} 로 로그인 중 · 기록이 계정에 동기화되고 있어요. <a href="#privacy" id="privLink">개인정보 처리 안내</a></p>
+      <button class="btn btn-ghost btn-danger" type="button" id="acctDel">계정 삭제 (모든 기록 영구 삭제)</button>` : ''}
       <div class="row" style="margin-top:20px"><span class="spacer"></span><button class="btn btn-primary" id="setSave">저장</button></div>`);
+    if ($('#acctDel')) { $('#acctDel').onclick = () => { closeModal(); deleteAccount(); }; $('#privLink').onclick = () => closeModal(); }
     $('#keyShow').onclick = () => { const k = $('#setKey'); k.type = k.type === 'password' ? 'text' : 'password'; };
     $('#setRate').oninput = e => { $('#rateVal').textContent = e.target.value; };
     $('#voiceTest').onclick = () => {
@@ -2045,6 +2050,243 @@ Fill the fields as follows:
   $('#scrim').onclick = () => setMenu(false);
   $('#sidebar').addEventListener('click', e => { if (e.target.closest('a')) setMenu(false); });
   window.addEventListener('hashchange', () => setMenu(false));
+
+  /* =========================================================
+     구글 로그인 · 기기 간 기록 동기화 (Firebase, 선택 사항)
+     - 로그인 안 하면 지금처럼 이 브라우저에만 저장
+     - 로그인하는 순간: 이 브라우저 기록 + 계정 기록을 합침
+     - 로그인 중: 바뀔 때마다 계정에 저장, 탭으로 돌아오면 최신 기록을 받아옴
+     - 보안: Firestore 규칙으로 각자 users/{내 uid} 문서만 읽고 쓸 수 있음
+     ========================================================= */
+  const FB_CONFIG = {
+    apiKey: 'AIzaSyChlTg1LqehBGKuP5zeI7NEQK0H51YHS8E',
+    authDomain: 'speaking-runner.firebaseapp.com',
+    projectId: 'speaking-runner',
+    storageBucket: 'speaking-runner.firebasestorage.app',
+    messagingSenderId: '305134314797',
+    appId: '1:305134314797:web:7d9406b28ee469a4779fa4'
+  };
+  const FB_VER = '10.12.2';
+  // 이 기기에만 두는 설정 (계정에 올리지 않음)
+  const LOCAL_ONLY = ['apiKey', 'voice', 'voiceV2', 'volume'];
+  var CLOUD = { fb: null, user: null, lastSync: 0, busy: false, timer: 0, status: '' };
+
+  async function fbLoad() {
+    if (CLOUD.fb) return CLOUD.fb;
+    const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+    const [A, U, F] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+    const app = A.initializeApp(FB_CONFIG);
+    CLOUD.fb = { U, F, auth: U.getAuth(app), db: F.getFirestore(app) };
+    return CLOUD.fb;
+  }
+  const cloudPart = () => {
+    const settings = { ...S.settings }; LOCAL_ONLY.forEach(k => delete settings[k]);
+    return { custom: S.custom, bookmarks: S.bookmarks, tests: S.tests, days: S.days, marks: S.marks, settings, chat: S.chat };
+  };
+  const keepLocal = () => Object.fromEntries(LOCAL_ONLY.map(k => [k, S.settings[k]]));
+  // 두 기록 합치기 (둘 중 하나에만 있는 것도 모두 살림)
+  function mergeState(a, b) {
+    const byKey = (x, y, k) => { const m = new Map(); [...(y || []), ...(x || [])].forEach(i => m.set(i[k], i)); return [...m.values()]; };
+    const marks = { ...(b.marks || {}) };
+    Object.entries(a.marks || {}).forEach(([id, v]) => { if (marks[id] !== 'done') marks[id] = v; }); // '외움'을 우선
+    return {
+      custom: byKey(a.custom, b.custom, 'id'),
+      bookmarks: byKey(a.bookmarks, b.bookmarks, 'key').sort((x, y) => (y.ts || 0) - (x.ts || 0)),
+      tests: byKey(a.tests, b.tests, 'id').sort((x, y) => (y.date || 0) - (x.date || 0)).slice(0, 40),
+      days: [...new Set([...(a.days || []), ...(b.days || [])])].sort(),
+      marks,
+      settings: { ...(b.settings || {}), ...(a.settings || {}) },
+      chat: a.chat || b.chat
+    };
+  }
+  function adopt(part) {
+    const loc = keepLocal(), d = defaults();
+    S = { ...d, ...part, settings: { ...d.settings, ...(part.settings || {}), ...loc }, chat: { ...d.chat, ...(part.chat || {}) } };
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { }
+  }
+  const userRef = () => CLOUD.fb.F.doc(CLOUD.fb.db, 'users', CLOUD.user.uid);
+  async function cloudGet() {
+    const snap = await CLOUD.fb.F.getDoc(userRef());
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    try { return { updated: d.updated || 0, part: JSON.parse(d.state || '{}') }; } catch (e) { return null; }
+  }
+  async function cloudPut() {
+    const now = Date.now();
+    await CLOUD.fb.F.setDoc(userRef(), { state: JSON.stringify(cloudPart()), updated: now, email: CLOUD.user.email || '', name: CLOUD.user.displayName || '' });
+    CLOUD.lastSync = now;
+    setSync('ok');
+  }
+  // 로그인 직후 1번: 합치기
+  async function cloudLink() {
+    setSync('busy');
+    const r = await cloudGet();
+    const hasLocal = S.bookmarks.length || S.tests.length || S.days.length || Object.keys(S.marks).length || S.custom.length;
+    if (r) adopt(hasLocal ? mergeState(cloudPart(), r.part) : r.part);
+    await cloudPut();
+    render(true);
+  }
+  // 탭으로 돌아왔을 때: 다른 기기에서 바뀐 게 있으면 받아옴
+  async function cloudPull() {
+    if (!CLOUD.user || CLOUD.busy) return;
+    try {
+      const r = await cloudGet();
+      if (r && r.updated > CLOUD.lastSync) {
+        adopt(r.part); CLOUD.lastSync = r.updated; setSync('ok');
+        if (!R) render(true); // 실전 시험 중이면 화면을 건드리지 않음
+      }
+    } catch (e) { setSync('err'); }
+  }
+  // 저장할 때마다(1.5초 모아서) 계정에 올림. 그 사이 다른 기기에서 바뀌었으면 먼저 합침
+  function cloudSoon() {
+    if (!CLOUD || !CLOUD.user) return;
+    clearTimeout(CLOUD.timer);
+    CLOUD.timer = setTimeout(async () => {
+      if (CLOUD.busy) return cloudSoon();
+      CLOUD.busy = true; setSync('busy');
+      try {
+        const r = await cloudGet();
+        if (r && r.updated > CLOUD.lastSync) adopt(mergeState(cloudPart(), r.part));
+        await cloudPut();
+      } catch (e) { setSync('err'); }
+      CLOUD.busy = false;
+    }, 1500);
+  }
+  function setSync(s) { CLOUD.status = s; renderAcct(); }
+
+  // 네이버·카카오톡·인스타 등 앱 안 브라우저는 구글이 로그인을 막음 → 외부 브라우저 안내
+  const IN_APP = /NAVER|KAKAOTALK|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|Whale\/.*inapp|; wv\)/i.test(navigator.userAgent);
+  function inAppGuide() {
+    const url = location.origin + location.pathname;
+    const android = /Android/i.test(navigator.userAgent);
+    const kakao = /KAKAOTALK/i.test(navigator.userAgent);
+    openModal(`
+      <h2>🌐 다른 브라우저로 열어 주세요 <span class="spacer"></span><button class="btn btn-ghost" data-act="close-modal">✕</button></h2>
+      <p>지금은 <b>네이버·카카오톡 같은 앱 안의 브라우저</b>로 열려 있어요. 이런 곳에서는 <b>구글이 보안상 로그인을 막아서</b> 로그인할 수 없어요.</p>
+      <ol class="tip-list">
+        <li>화면 오른쪽 위나 아래의 <b>⋮ 또는 ⋯ 메뉴</b>를 누르세요</li>
+        <li><b>"다른 브라우저로 열기"</b> (또는 "Chrome으로 열기", "Safari로 열기")를 누르세요</li>
+        <li>열린 크롬·사파리에서 다시 <b>구글로 로그인</b>을 누르세요</li>
+      </ol>
+      <div class="row" style="margin-top:14px">
+        ${android ? `<a class="btn btn-primary" href="intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end">크롬으로 바로 열기</a>` : ''}
+        ${kakao ? `<a class="btn btn-primary" href="kakaotalk://web/openExternal?url=${encodeURIComponent(url)}">외부 브라우저로 열기</a>` : ''}
+        <button class="btn" id="copyUrl">🔗 주소 복사하기</button>
+      </div>
+      <p class="small muted" style="margin-top:10px">로그인하지 않아도 사이트는 그대로 쓸 수 있어요. 기록은 이 브라우저에만 저장돼요.</p>`);
+    $('#copyUrl').onclick = () => copyText(url).then(ok => toast(ok ? '주소를 복사했어요. 크롬·사파리 주소창에 붙여넣으세요' : url));
+  }
+
+  async function login() {
+    if (IN_APP) return inAppGuide();
+    CLOUD.justClicked = true;
+    try {
+      setSync('busy');
+      if (!CLOUD.authReady) await authInit(); // 처음 누를 때 Firebase를 불러옴
+      const fb = CLOUD.fb;
+      const provider = new fb.U.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await fb.U.signInWithPopup(fb.auth, provider);
+      // 이후 처리는 onAuthStateChanged에서
+    } catch (e) {
+      setSync('');
+      const c = e && e.code || '';
+      if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+      if (c === 'auth/popup-blocked') return toast('팝업이 막혔어요. 주소창 오른쪽의 팝업 차단 아이콘에서 허용해 주세요');
+      if (c === 'auth/unauthorized-domain') return toast('로그인 설정이 아직 안 끝났어요 (승인된 도메인)');
+      if (/disallowed|web-storage|operation-not-supported/.test(c)) return inAppGuide();
+      toast(CLOUD.fb ? '로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요' : '로그인 기능을 불러오지 못했어요. 인터넷 연결을 확인해 주세요');
+      console.error(e);
+    }
+  }
+  async function logout() {
+    if (!(await ask('로그아웃할까요?\n기록은 계정에 안전하게 저장돼 있고, 이 브라우저에서는 지워져요. 다시 로그인하면 돌아와요.', { ok: '로그아웃' }))) return;
+    clearTimeout(CLOUD.timer);
+    try { if (CLOUD.user) await cloudPut(); } catch (e) { }
+    await CLOUD.fb.U.signOut(CLOUD.fb.auth);
+  }
+  async function deleteAccount() {
+    if (!(await ask('계정과 계정에 저장된 모든 기록(북마크·풀이 기록·피드백)을 영구 삭제할까요? 되돌릴 수 없어요.', { ok: '영구 삭제', danger: true }))) return;
+    try {
+      await CLOUD.fb.F.deleteDoc(userRef());
+      await CLOUD.fb.U.deleteUser(CLOUD.user);
+      toast('계정과 기록을 모두 삭제했어요');
+    } catch (e) {
+      if (e && e.code === 'auth/requires-recent-login') { toast('보안을 위해 로그아웃 후 다시 로그인한 뒤 삭제해 주세요'); return; }
+      toast('삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요');
+    }
+  }
+
+  function renderAcct() {
+    const box = $('#acct'); if (!box) return;
+    const u = CLOUD.user;
+    if (!u) {
+      box.innerHTML = `<button class="acct-login" id="acctLogin" ${CLOUD.status === 'busy' ? 'disabled' : ''}>
+        <span class="g">G</span><span><b>${CLOUD.status === 'busy' ? '로그인 중…' : '구글로 로그인'}</b><small>기기를 바꿔도 기록이 이어져요</small></span></button>
+        <a class="acct-privacy" href="#privacy">개인정보 처리 안내</a>`;
+      $('#acctLogin').onclick = () => login();
+      return;
+    }
+    const st = { ok: '☁️ 동기화됨', busy: '⏳ 저장 중…', err: '⚠️ 동기화 실패 · 다시 시도해요' }[CLOUD.status] || '';
+    box.innerHTML = `<div class="acct-user">
+        ${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : '<span class="g">👤</span>'}
+        <span><b>${esc(u.displayName || u.email || '로그인됨')}</b><small>${st}</small></span></div>
+      <div class="acct-links"><button id="acctOut">로그아웃</button> · <a href="#privacy">개인정보</a></div>`;
+    $('#acctOut').onclick = logout;
+  }
+
+  async function authInit() {
+    if (CLOUD.authReady) return;
+    const fb = await fbLoad();
+    CLOUD.authReady = true;
+    fb.U.onAuthStateChanged(fb.auth, async user => {
+      const was = CLOUD.user;
+      CLOUD.user = user;
+      if (user) {
+        try { localStorage.setItem('sr_login', '1'); } catch (e) { }
+        try {
+          if (!was) {
+            await cloudLink();
+            track('login', { method: 'google' });
+            if (CLOUD.justClicked) toast(`👋 ${user.displayName || ''}님, 이제 어느 기기에서든 기록이 이어져요`);
+          }
+        } catch (e) { setSync('err'); console.error(e); }
+      } else {
+        try { localStorage.removeItem('sr_login'); } catch (e) { }
+        if (was) { adopt({}); render(); toast('로그아웃했어요'); }
+      }
+      renderAcct();
+    });
+  }
+  // 전에 로그인했던 브라우저면 Firebase를 바로 불러와 로그인 상태를 복원 (아니면 버튼 누를 때만 불러옴)
+  renderAcct();
+  if ((() => { try { return localStorage.getItem('sr_login') === '1'; } catch (e) { return false; } })()) authInit().catch(() => setSync('err'));
+  // 로그인 안 한 사람도 몇 초 뒤 미리 불러 둠 → 버튼을 누르면 바로 팝업이 떠서 사파리 팝업 차단을 피함
+  else if (!IN_APP) setTimeout(() => authInit().catch(() => { }), 4000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cloudPull(); });
+
+  // 개인정보 처리 안내
+  VIEWS.privacy = () => `
+    <div class="page-head"><h1>🔒 개인정보 처리 안내</h1><p>스피킹 러너는 로그인 없이도 쓸 수 있고, 구글 로그인은 <b>기기 간 기록 동기화</b>를 원하는 분만 선택해서 사용해요.</p></div>
+    <div class="card privacy">
+      <h3>1. 수집하는 정보</h3>
+      <ul><li><b>구글로 로그인한 경우에만:</b> 구글 계정의 이름·이메일 주소·프로필 사진 주소, 구글이 발급하는 계정 식별 번호</li>
+      <li>학습 기록: 북마크, 😵/✅ 표시, 풀이 기록과 직접 적은 답변, 붙여넣은 AI 피드백, 공부한 날짜</li>
+      <li><b>수집하지 않는 것:</b> 녹음 파일(이 기기에만 잠깐 남고 어디에도 저장·전송되지 않아요), 설정에 넣은 AI API 키</li></ul>
+      <h3>2. 이용 목적</h3>
+      <ul><li>같은 계정으로 로그인한 여러 기기에서 학습 기록을 이어서 보여 주기 위해서만 사용해요. 광고·마케팅에 쓰거나 다른 곳에 제공하지 않아요.</li></ul>
+      <h3>3. 보관 장소와 기간</h3>
+      <ul><li>Google Firebase(서울 리전)에 저장되며, 본인만 자기 기록을 읽고 쓸 수 있도록 잠겨 있어요.</li>
+      <li>사용자가 <b>계정 삭제</b>를 할 때까지 보관하고, 삭제하면 즉시 영구 삭제돼요.</li></ul>
+      <h3>4. 삭제 방법</h3>
+      <ul><li>로그인한 상태에서 <b>⚙️ 설정 · 백업 → 계정 삭제</b>를 누르면 계정과 모든 기록이 바로 지워져요.</li>
+      <li>직접 삭제가 어려우면 <a href="#opinion">📮 의견 보내기</a>로 요청해 주세요.</li></ul>
+      <h3>5. 방문 통계</h3>
+      <ul><li>사이트 개선을 위해 Google 애널리틱스로 방문 수·기기 종류 같은 <b>익명 통계</b>를 모아요. 이름·이메일 같은 개인 정보는 통계에 포함되지 않아요.</li></ul>
+      <h3>6. 로그인하지 않는 경우</h3>
+      <ul><li>모든 기록은 지금 쓰는 브라우저 안에만 저장되고, 어디로도 전송되지 않아요.</li></ul>
+      <p class="small muted" style="margin-top:16px">시행일: 2026년 9월 28일</p>
+    </div>`;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) closeModal(); });
 
   render();

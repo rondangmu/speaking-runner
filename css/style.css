@@ -53,7 +53,23 @@ a { color: var(--primary); }
 .nav a.active { background: var(--primary-soft); color: var(--primary); }
 .nav-badge { margin-left: auto; font-style: normal; font-size: 12px; background: var(--amber); color: #fff; border-radius: 99px; padding: 0 8px; }
 .nav-badge:empty { display: none; }
-.nav-settings { margin-top: auto; }
+.nav-settings { margin-top: 0; }
+/* 구글 로그인 · 계정 */
+.acct { margin-top: auto; padding: 0 4px; }
+.acct-login { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; text-align: left; }
+.acct-login:hover { background: var(--bg); }
+.acct-login:disabled { opacity: .6; cursor: wait; }
+.acct-login b, .acct-user b { display: block; font-size: 14px; }
+.acct-login small, .acct-user small { display: block; font-size: 11.5px; color: var(--muted); }
+.acct .g { width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); }
+.acct-user { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
+.acct-user img { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; }
+.acct-user b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.acct-links, .acct-privacy { display: block; font-size: 12px; color: var(--muted); padding: 4px 8px 0; }
+.acct-links button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0; font-size: 12px; text-decoration: underline; }
+.acct-privacy { text-decoration: underline; color: var(--muted); }
+.privacy h3 { margin: 18px 0 6px; } .privacy h3:first-child { margin-top: 0; }
+.privacy ul { margin: 0; padding-left: 20px; line-height: 1.7; color: var(--ink-2); }
 .main { flex: 1; min-width: 0; padding: 32px 40px 80px; max-width: 1160px; }
 
 /* ============ 공통 컴포넌트 ============ */

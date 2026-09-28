@@ -68,6 +68,8 @@ a { color: var(--primary); }
 .acct-links, .acct-privacy { display: block; font-size: 12px; color: var(--muted); padding: 4px 8px 0; }
 .acct-links button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0; font-size: 12px; text-decoration: underline; }
 .acct-privacy { text-decoration: underline; color: var(--muted); }
+.local-notice { margin: 16px 0 0; line-height: 1.6; }
+.link-btn { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--primary); text-decoration: underline; cursor: pointer; }
 .privacy h3 { margin: 18px 0 6px; } .privacy h3:first-child { margin-top: 0; }
 .privacy ul { margin: 0; padding-left: 20px; line-height: 1.7; color: var(--ink-2); }
 .main { flex: 1; min-width: 0; padding: 32px 40px 80px; max-width: 1160px; }

@@ -352,6 +352,7 @@
           <a class="btn btn-lg btn-glass" href="#bank/1">📚 약한 파트 연습</a>
         </div>
       </section>
+      ${localNotice()}
       <div class="grid grid-4" style="margin-top:16px">
         <div class="stat"><b>🔥 ${streak()}일</b><span>연속 학습</span></div>
         <div class="stat"><b>${done}세트</b><span>완료한 실전 모의고사</span></div>
@@ -1643,6 +1644,7 @@ Fill the fields as follows:
     const groups = bmFilter === 'all' ? Object.keys(BM_TYPES).map(k => [k, list.filter(b => b.type === k)]).filter(g => g[1].length) : [[bmFilter, list]];
     return `
       <div class="page-head"><h1>⭐ 북마크</h1><p>모든 화면에서 ☆ 한 답변이 여기 모여요. 카드 모드로 한 장씩 넘기며 외우고, 외운 건 ✅ 체크하세요.</p></div>
+      ${localNotice()}
       <div class="grid grid-4" style="margin-bottom:14px">
         <div class="stat"><b>${all.length}</b><span>전체 북마크</span></div>
         <div class="stat"><b>${all.filter(b => b.done).length}</b><span>✅ 외운 것</span></div>
@@ -2220,6 +2222,7 @@ Fill the fields as follows:
   function renderAcct() {
     const box = $('#acct'); if (!box) return;
     const u = CLOUD.user;
+    $$('.local-notice').forEach(n => n.classList.toggle('hidden', !!u)); // 로그인하면 안내 숨김
     if (!u) {
       box.innerHTML = `<button class="acct-login" id="acctLogin" ${CLOUD.status === 'busy' ? 'disabled' : ''}>
         <span class="g">G</span><span><b>${CLOUD.status === 'busy' ? '로그인 중…' : '구글로 로그인'}</b><small>기기를 바꿔도 기록이 이어져요</small></span></button>
@@ -2234,6 +2237,13 @@ Fill the fields as follows:
       <div class="acct-links"><button id="acctOut">로그아웃</button> · <a href="#privacy">개인정보</a></div>`;
     $('#acctOut').onclick = logout;
   }
+
+  // 로그인 안 한 사람에게 보이는 안내 (홈·북마크). 전에 로그인했던 브라우저는 처음부터 숨겨 깜빡임 방지
+  function localNotice() {
+    const hide = (CLOUD && CLOUD.user) || (() => { try { return localStorage.getItem('sr_login') === '1'; } catch (e) { return false; } })();
+    return `<div class="notice info local-notice ${hide ? 'hidden' : ''}">💡 로그인하지 않으면 <b>연속 학습·북마크·풀이 기록</b>이 <b>지금 이 브라우저에만</b> 저장돼요. 다른 기기나 브라우저에서도 이어서 보려면 <button class="link-btn" data-act="login">구글로 로그인</button>하세요. <span class="muted">(또는 ⚙️ 설정 → 백업 파일로 옮기기)</span></div>`;
+  }
+  ACT.login = () => login();
 
   async function authInit() {
     if (CLOUD.authReady) return;

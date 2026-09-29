@@ -6,13 +6,15 @@
 
 window.UNIVERSAL = [
   { id: 'u-time', emoji: '⏰', ko: '시간 절약', en: `It saves a lot of time, so I can use that time for more important things.`, plus: `For example, I don't have to spend an hour commuting.` },
-  { id: 'u-money', emoji: '💰', ko: '돈 절약', en: `It helps me save money, which is really important for students and young workers.`, plus: `I can spend the money I save on things I really need.` },
+  { id: 'u-money', emoji: '💰', ko: '돈 절약', en: `It saves me a lot of money, so I can spend it on things I really need.`, plus: `Money is very important for students and young workers.` },
   { id: 'u-stress', emoji: '😌', ko: '스트레스 감소', en: `It reduces stress, so I can stay focused and feel more relaxed.`, plus: `When I'm less stressed, I perform much better.` },
   { id: 'u-efficiency', emoji: '⚡', ko: '효율 · 생산성', en: `It makes people more productive and efficient.`, plus: `They can get more work done in less time.` },
   { id: 'u-skill', emoji: '🛠️', ko: '경험 · 실무 능력', en: `It gives people practical experience and skills that they can't learn from books.`, plus: `These skills are very helpful when they start working.` },
   { id: 'u-relation', emoji: '🤝', ko: '소통 · 인간관계', en: `It helps people communicate better and build good relationships.`, plus: `Good relationships make life and work much more enjoyable.` },
   { id: 'u-convenient', emoji: '📱', ko: '편리함', en: `It's very convenient because I can do it anytime and anywhere.`, plus: `I don't have to worry about opening hours or location.` },
-  { id: 'u-health', emoji: '💪', ko: '건강', en: `It's good for both our physical and mental health.`, plus: `Staying healthy is the most important thing in life.` }
+  { id: 'u-health', emoji: '💪', ko: '건강', en: `It's good for both our physical and mental health.`, plus: `Staying healthy is the most important thing in life.` },
+  { id: 'u-happy', emoji: '😊', ko: '행복 · 즐거움', en: `It makes me happy, so I can enjoy my life more.`, plus: `When I am happy, I have more energy for my work and study.` },
+  { id: 'u-safe', emoji: '🛡️', ko: '안전', en: `It is safer for everyone, so people feel less worried.`, plus: `It helps us avoid accidents and stay healthy.` }
 ];
 
 window.TOPICS = [

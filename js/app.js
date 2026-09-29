@@ -386,6 +386,7 @@
 
   /* 업데이트 소식 — 새로 올릴 때 맨 위에 한 줄 추가 [날짜, 내용]. 맨 위 한 줄에만 7일간 NEW 표시 */
   const UPDATES = [
+    ['2026-09-29', '<b>주제별 공략</b> 확장 — 주제 카드 20개, 만능 이유 10종, Part 2·4 필수 표현'],
     ['2026-09-29', '<b>Part 1~5 새 문제 56개</b> 추가 (사진 묘사 8장·뉴스·음성 메시지·채용 박람회·자원봉사 등)'],
     ['2026-09-28', '실전 모드 중간에 <b>[시험 종료]로 바로 나갈 수</b> 있어요'],
     ['2026-09-28', '<b>구글 로그인</b> — 기기를 바꿔도 연속 학습·북마크가 이어져요'],
@@ -1576,7 +1577,7 @@ Fill the fields as follows:
         <span class="muted small">☆ 를 누르면 북마크에 모여요</span>
       </div>
       <div class="${flip ? 'flip' : ''}">
-        <h2>⚡ 만능 이유 8종 <span class="muted small">— 어떤 질문이든 이유가 막히면 여기서 꺼내 쓰세요</span></h2>
+        <h2>⚡ 만능 이유 ${UNIVERSAL.length}종 <span class="muted small">— 어떤 질문이든 이유가 막히면 여기서 꺼내 쓰세요</span></h2>
         <div class="uni-grid">
           ${UNIVERSAL.map(u => `<div class="uni"><span class="e">${u.emoji}</span><b>${esc(u.ko)}</b><div class="en">${esc(u.en)}</div>${bmBtn('topic:' + u.id, { type: 'topic', title: `만능 이유 · ${u.ko}`, sub: '', content: `${u.en}\n${u.plus}`, part: 0 })}</div>`).join('')}
         </div>
@@ -1585,6 +1586,13 @@ Fill the fields as follows:
           <summary><h2 style="display:inline">🧱 만능 문장 구조 라이브러리</h2> <span class="muted small">— 기능별 패턴 ${STRUCTURES.reduce((n, c) => n + c.items.length, 0)}개</span></summary>
           <div class="struct-grid">
             ${STRUCTURES.map((c, ci) => `<div class="struct-card"><h3>${esc(c.cat)}</h3>${c.items.map(([p, ko, ex], i) => `<div class="kit-st"><div><b class="en">${esc(p)}</b> <span class="muted">${esc(ko)}</span>${ex ? `<div class="kit-ex en">${esc(ex)}</div>` : ''}</div>${bmBtn(`struct:${ci}:${i}`, { type: 'topic', title: `문장 구조 · ${c.cat.replace(/^\S+\s/, '')}`, sub: '', content: p + (ex ? '\n' + ex : '') + `\n(${ko})`, part: 0 })}</div>`).join('')}</div>`).join('')}
+          </div>
+        </details>
+
+        <details class="struct-lib">
+          <summary><h2 style="display:inline">🎯 파트별 필수 표현</h2> <span class="muted small">— Part 2 사진 묘사(색·위치·동작·추측) · Part 4 표 읽기 ${PART_PHRASES.reduce((n, c) => n + c.items.length, 0)}개</span></summary>
+          <div class="struct-grid">
+            ${PART_PHRASES.map((c, ci) => `<div class="struct-card"><h3>${esc(c.cat)}</h3>${c.items.map(([p, ko, ex], i) => `<div class="kit-st"><div><b class="en">${esc(p)}</b> <span class="muted">${esc(ko)}</span>${ex ? `<div class="kit-ex en">${esc(ex)}</div>` : ''}</div>${bmBtn(`pp:${ci}:${i}`, { type: 'topic', title: `파트별 표현 · ${c.cat.replace(/^\S+\s/, '')}`, sub: '', content: p + (ex ? '\n' + ex : '') + `\n(${ko})`, part: 0 })}</div>`).join('')}</div>`).join('')}
           </div>
         </details>
 

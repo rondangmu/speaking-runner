@@ -263,7 +263,7 @@ label.field > span { display: block; font-weight: 600; font-size: 13px; margin-b
 audio { width: 100%; max-width: 420px; height: 38px; }
 
 /* ============ 주제별 공략 ============ */
-.uni-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.uni-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .uni { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 40px 14px 14px; box-shadow: var(--shadow); cursor: pointer; }
 .uni .e { font-size: 22px; }
 .uni b { display: block; margin: 2px 0 4px; }

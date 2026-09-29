@@ -27,12 +27,6 @@ BANK.part2 = [
     place: 'in a park', see: 'two people sitting on a wooden bench',
     a: ['On the grass,', 'there are some other benches, and people are sitting on them'], b: ['On the right,', 'a woman in a pink jacket is relaxing on a bench'],
     c: 'some people are sitting on the grass in the distance', bg: 'there is a big tree without leaves', feel: 'calm and peaceful', mood: 'it is a sunny day in late autumn' },
-  { id: 'p2-05', cat: 'school', topic: '도서관 · 학습 공간', img: U('photo-1752747115265-1e4cfb2c1212'),
-    alt: '(흑백) 큰 창문이 있는 학습 공간. 두 사람이 각자 테이블에서 노트북으로 공부. 한 명은 헤드폰, 한 명은 손으로 머리를 받침. 벽에 액자 지도, 의자에 배낭, 빈 의자.',
-    kw: ['study area 학습 공간', 'wear headphones 헤드폰을 쓰다', 'laptop 노트북', 'framed map 액자 지도'],
-    place: 'in a library', see: 'two students studying with their laptops',
-    a: ['On the right,', 'a man is wearing headphones'], b: ['On the left,', 'a man is resting his head on his hand'],
-    c: 'a backpack is hanging on the chair', bg: 'there is a big map on the wall', feel: 'very quiet', mood: 'they are preparing for their exams' },
   { id: 'p2-06', cat: 'street', topic: '도로 · 횡단보도', img: U('photo-1761301006704-bc013cfb1e65'),
     alt: '나무가 늘어선 도시 도로. 횡단보도를 건너는 사람들 — 왼쪽 흰 셔츠 남자, 가운데 가방 든 여자. 정차한 차들, 신호등, "ALL BUSES" 표지판.',
     kw: ['cross the street 길을 건너다', 'crosswalk 횡단보도', 'traffic light 신호등', 'lined with trees 나무가 늘어선'],
@@ -87,12 +81,6 @@ BANK.part2 = [
     place: 'at a beach', see: 'two women walking toward the sea',
     a: ['On the left,', 'a woman is carrying a surfboard under her arm'], b: ['On the right,', 'the other woman is raising her arm'],
     c: 'there are many footprints in the sand', bg: 'I can see the waves and a small hill', feel: 'sunny and exciting', mood: 'they are going surfing together' },
-  { id: 'p2-15', cat: 'food', topic: '주방 · 요리사', img: U('photo-1629407119384-d42320c3e576'),
-    alt: '(흑백) 주방. 줄무늬 앞치마를 입은 요리사 두 명이 조리대에서 일함, 한 명은 모자를 씀. 벽에 냄비와 팬이 걸려 있고, 선반 위에 병들.',
-    kw: ['kitchen 주방', 'chef / cook 요리사', 'striped apron 줄무늬 앞치마', 'hang on the wall 벽에 걸려 있다'],
-    place: 'in a kitchen', see: 'two cooks working at a counter',
-    a: ['On the left,', 'a cook with a cap is looking at the food'], b: ['On the right,', 'another cook is preparing a dish'],
-    c: 'they are both wearing striped aprons', bg: 'some pots and pans are hanging on the wall', feel: 'busy', mood: 'they are getting ready for dinner time' },
   { id: 'p2-16', cat: 'shop', topic: '서점', img: U('photo-1566131807516-e3b3cd1a89d1'),
     alt: '서점. 양쪽에 2층까지 높은 책장, 뒤쪽 큰 아치형 창문. 긴 머리 여자가 카운터에 서 있는 뒷모습(줄무늬 스웨터), 카운터 위 꽃, 책을 둘러보는 손님들, 책 더미가 쌓인 테이블.',
     kw: ['bookstore 서점', 'bookshelf 책장', 'arched window 아치형 창문', 'browse 둘러보다'],
@@ -178,13 +166,28 @@ BANK.part2 = [
     kw: ["with one's back to the camera 뒷모습으로", 'plaid shirt 체크무늬 셔츠', 'pay attention 집중하다', 'curtain 커튼'],
     place: 'in a classroom', see: 'a teacher talking to some students',
     a: ['At the front,', 'a man in a gray sweater is standing and talking'], b: ['In the foreground,', 'a man in a red plaid shirt is sitting with his back to the camera'],
-    c: 'a girl in a pink top and a girl with long black hair are also listening', bg: 'there is a dark screen on the wall and a window with curtains', feel: 'quiet and serious', mood: 'the students are paying attention to the lesson' },
+    c: 'a girl in a pink top and a girl with long black hair are listening to him', bg: 'there is a dark screen on the wall and a window with curtains', feel: 'quiet and serious', mood: 'the students are paying attention to the lesson' },
   { id: 'p2-30', cat: 'school', topic: '강의실 · 손 든 학생', img: U('photo-1758270704286-83476deb3bd1'),
     alt: '큰 강의실. 왼쪽에 회색 재킷의 남자(선생님)가 학생을 향해 팔을 뻗고, 가운데 흰 스웨터를 입은 청년이 손을 듦. 파란 셔츠의 곱슬머리 여자는 필기 중, 빨간 체크 셔츠 남자와 다른 학생들이 앉아 있음. 나무 책상, 큰 창문과 커튼, 계단식 좌석.',
     kw: ["raise one's hand 손을 들다", 'lecture hall 강의실', "stretch out one's arm 팔을 뻗다", 'wooden desk 나무 책상'],
     place: 'in a big classroom', see: 'a student raising his hand in class',
     a: ['On the left,', 'a man in a gray jacket is standing and stretching out his arm'], b: ['In the middle,', 'a young man in a white sweater is raising his hand'],
-    c: 'a woman with curly hair is writing in her notebook', bg: 'there are wooden desks and big windows with curtains', feel: 'active and bright', mood: 'the teacher asked a question and the student wants to answer' }
+    c: 'a woman with curly hair is writing in her notebook', bg: 'there are wooden desks and big windows with curtains', feel: 'active and bright', mood: 'the teacher asked a question and the student wants to answer' },
+
+  /* ── 흑백이던 p2-05·p2-15를 컬러 사진으로 교체 (색 표현 연습을 위해 Part 2는 모두 컬러) ──
+     pos = 카드에서 사진을 3:2로 자를 때 보여 줄 위치 (세로 사진에서 얼굴이 잘리지 않게) */
+  { id: 'p2-31', cat: 'school', topic: '도서관 · 책 읽는 여성', img: U('photo-1752920299211-28be8c9b0121'), pos: '50% 28%',
+    alt: '도서관 서가 통로. 안경을 쓴 웨이브 머리 여자가 검은 재킷, 노란 상의, 청바지 차림으로 서서 펼친 파란 책을 읽고 있음. 오른쪽에 책이 가득한 흰 서가, 뒤쪽으로 이어지는 서가, 바닥에 붉은 무늬 카펫, 천장에 밝은 조명.',
+    kw: ['bookshelf 책장', 'hold an open book 펼친 책을 들다', 'aisle 통로', 'carpet 카펫'],
+    place: 'in a library', see: 'a woman reading a book next to a bookshelf',
+    a: ['In the middle,', 'a woman with glasses and wavy hair is holding an open book'], b: ['She', 'is wearing a black jacket, a yellow top, and jeans'],
+    c: 'she is smiling a little while she reads', bg: 'there are white shelves full of books, and the carpet is red', feel: 'quiet and calm', mood: 'she is looking for some information for her study' },
+  { id: 'p2-32', cat: 'food', topic: '주방 · 요리사 조리', img: U('photo-1622021142947-da7dedc7c39a'),
+    alt: '레스토랑 주방. 흰 조리복과 검은 바지를 입은 요리사가 서서 초록색 도마 위에서 음식을 손질함. 스테인리스 조리대, 앞쪽 금속 볼, 오른쪽에 큰 냄비와 오븐, 뒤쪽 선반에 쌓인 흰 접시와 유리잔.',
+    kw: ['cutting board 도마', "chef's jacket 조리복", 'stainless steel 스테인리스', 'stack of plates 쌓인 접시'],
+    place: 'in a restaurant kitchen', see: 'a chef preparing food on a cutting board',
+    a: ['In the middle,', 'a chef in a white jacket is cutting some food on a green cutting board'], b: ['In the front,', 'there is a metal bowl on the counter'],
+    c: 'there are some glasses and bowls on the counter', bg: 'there are shelves with stacks of white plates', feel: 'clean and professional', mood: 'the chef is preparing a dish for a customer' }
 ];
 // 사진은 img 폴더의 파일을 사용 (인터넷 없이도, 온라인 공유 페이지에서도 보이게). 원본 주소는 src에 보관.
 BANK.part2.forEach(it => { it.src = it.img; it.img = 'img/' + it.id + '.jpg'; });

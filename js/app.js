@@ -284,7 +284,7 @@
     return [it.title, it.subtitle, (t.head || []).join(' | '), ...(t.rows || []).map(r => r.join(' | '))].filter(Boolean).join('\n');
   }
   function imgTag(it, cls = 'qimg') {
-    return `<img class="${cls}" src="${esc(it.img)}" alt="${esc(it.alt || '')}" data-alt="${esc(it.alt || '')}" loading="lazy">`;
+    return `<img class="${cls}" src="${esc(it.img)}" alt="${esc(it.alt || '')}" data-alt="${esc(it.alt || '')}" loading="lazy"${it.pos ? ` style="object-position:${esc(it.pos)}"` : ''}>`;
   }
   // 사진을 못 불러오면 설명 텍스트로 대체
   document.addEventListener('error', e => {
